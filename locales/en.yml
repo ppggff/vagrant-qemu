@@ -1,0 +1,54 @@
+en:
+  vagrant_qemu:
+    already_status: |-
+      The machine is already %{status}.
+    not_created: |-
+      Instance is not created. Please run `vagrant up` first.
+    rsync_not_found_warning: |-
+      Warning! Folder sync disabled because the rsync binary is missing in the %{side}.
+      Make sure rsync is installed and the binary can be found in the PATH.
+    rsync_folder: |-
+      Rsyncing folder: %{hostpath} => %{guestpath}
+    starting: |-
+      Starting the instance...
+    stopping: |-
+      Stopping the instance...
+    destroying: |-
+      Destroying the instance...
+    warn_networks: |-
+      Warning! The QEMU provider doesn't support any of the Vagrant
+      high-level network configurations (`config.vm.network`). They
+      will be silently ignored.
+    will_not_destroy: |-
+      The instance '%{name}' will not be destroyed, since the confirmation
+      was declined.
+
+    errors:
+      not_supported: |-
+        Function not supported.
+      rsync_error: |-
+        There was an error when attempting to rsync a shared folder.
+        Please inspect the error message below for more info.
+
+        Host path: %{hostpath}
+        Guest path: %{guestpath}
+        Error: %{stderr}
+      mkdir_error: |-
+        There was an error when attempting to create a shared host folder.
+        Please inspect the error message below for more info.
+
+        Host path: %{hostpath}
+        Error: %{err}
+      box_invalid: |-
+        The box you're using with the QEMU provider ('%{name}')
+        is invalid.
+      execute_error: |-
+        A command executed by Vagrant didn't complete successfully!
+        The command run along with the output from the command is shown
+        below.
+
+        Command: %{command}
+
+        Stderr: %{stderr}
+
+        Stdout: %{stdout}
