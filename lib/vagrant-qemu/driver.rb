@@ -43,7 +43,7 @@ module VagrantPlugins
           pid_file = id_dir.join("qemu.pid")
 
           cmd = []
-          cmd += %W(system-system-#{options[:arch]})
+          cmd += %W(qemu-system-#{options[:arch]})
 
           # basic
           cmd += %W(-machine #{options[:machine]})
@@ -52,7 +52,6 @@ module VagrantPlugins
           cmd += %W(-m #{options[:memory]})
           cmd += %W(-device virtio-net-device,netdev=net0)
           cmd += %W(-netdev user,id=net0,hostfwd=tcp::#{options[:ssh_port]}-:22)
-          cmd += %W(-nographic)
 
           # drive
           cmd += %W(-drive "if=virtio,format=qcow2,file=#{image_path}")
@@ -64,9 +63,10 @@ module VagrantPlugins
           end
 
           # control
-          cmd += %W(-chardev socket,id=mon0,path=#{unix_socket_path},server,nowait)
+          cmd += %W(-chardev socket,id=mon0,path=#{unix_socket_path},server=on,wait=off)
           cmd += %W(-mon chardev=mon0,mode=readline)
           cmd += %W(-pidfile #{pid_file})
+          cmd += %W(-serial null -parallel null -monitor none -display none -vga none)
           cmd += %W(-daemonize)
 
           execute(cmd)
@@ -76,11 +76,10 @@ module VagrantPlugins
       def stop
         if running?
           unix_socket_path = id_dir.join("qemu_socket")
-          execute("nc", "-U", unix_socket_path) do |type, data|
+          execute("nc", "-w", "5", "-U", unix_socket_path) do |type, data|
           case type
           when :stdin
             data.write("system_powerdown")
-            data.close
           end
         end
         end
@@ -98,7 +97,7 @@ module VagrantPlugins
         execute("cp", options[:qemu_dir].join("edk2-arm-vars.fd"), id_dir.join("edk2-arm-vars.fd"))
 
         # Create image
-        execute("qemu-img", "create", "-f", "qcow2", "-b", options[:image_path], id_dir.join("linked-box.img"))
+        execute("qemu-img", "create", "-f", "qcow2", "-F", "qcow2", "-b", options[:image_path], id_dir.join("linked-box.img"))
 
         server = {
           :id => new_id,

@@ -40,7 +40,7 @@ module VagrantPlugins
         @smp = "2" if @smp == UNSET_VALUE
         @memory = "4G" if @memory == UNSET_VALUE
         @image_path = nil if @image_path == UNSET_VALUE
-        @qemu_dir = "/usr/local/share/qemu/" if @qemu_dir == UNSET_VALUE
+        @qemu_dir = "/opt/homebrew/share/qemu" if @qemu_dir == UNSET_VALUE
       end
 
       def validate(machine)
