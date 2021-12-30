@@ -12,12 +12,12 @@ module VagrantPlugins
 
         def call(env)
           options = {
-            :ssh_port => env[:machine].provider_config.ssh_port
-            :arch => env[:machine].provider_config.arch
-            :machine => env[:machine].provider_config.machine
-            :cpu => env[:machine].provider_config.cpu
-            :smp => env[:machine].provider_config.smp
-            :memory => env[:machine].provider_config.memory
+            :ssh_port => env[:machine].provider_config.ssh_port,
+            :arch => env[:machine].provider_config.arch,
+            :machine => env[:machine].provider_config.machine,
+            :cpu => env[:machine].provider_config.cpu,
+            :smp => env[:machine].provider_config.smp,
+            :memory => env[:machine].provider_config.memory,
           }
 
           env[:ui].output(I18n.t("vagrant_qemu.starting"))

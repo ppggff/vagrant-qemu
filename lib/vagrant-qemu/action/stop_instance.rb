@@ -12,6 +12,7 @@ module VagrantPlugins
           env[:machine].provider.driver.stop
           @app.call(env)
         end
+      end
     end
   end
 end

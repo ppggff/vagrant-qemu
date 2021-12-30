@@ -6,8 +6,14 @@ require_relative "driver"
 module VagrantPlugins
   module QEMU
     class Provider < Vagrant.plugin("2", :provider)
+      attr_reader :driver
+
       def initialize(machine)
         @machine = machine
+
+        # This method will load in our driver, so we call it now to
+        # initialize it.
+        machine_id_changed
       end
 
       def action(name)
@@ -20,7 +26,7 @@ module VagrantPlugins
       end
 
       def machine_id_changed
-        @driver = Driver.new(@machine.id, @machine.env.data_dir)
+        @driver = Driver.new(@machine.id, @machine.data_dir)
       end
 
       def ssh_info

@@ -38,9 +38,9 @@ module VagrantPlugins
       def start(options)
         if !running?
           id_dir = @data_dir.join(@vm_id)
-          image_path = id_dir.join("linked-box.img")
-          unix_socket_path = id_dir.join("qemu_socket")
-          pid_file = id_dir.join("qemu.pid")
+          image_path = id_dir.join("linked-box.img").to_s
+          unix_socket_path = id_dir.join("qemu_socket").to_s
+          pid_file = id_dir.join("qemu.pid").to_s
 
           cmd = []
           cmd += %W(qemu-system-#{options[:arch]})
@@ -54,12 +54,12 @@ module VagrantPlugins
           cmd += %W(-netdev user,id=net0,hostfwd=tcp::#{options[:ssh_port]}-:22)
 
           # drive
-          cmd += %W(-drive "if=virtio,format=qcow2,file=#{image_path}")
+          cmd += %W(-drive if=virtio,format=qcow2,file=#{image_path})
           if options[:arch] == "aarch64"
-            fm1_path = id_dir.join("edk2-aarch64-code.fd")
-            fm2_path = id_dir.join("edk2-arm-vars.fd")
-            cmd += %W(-drive "if=pflash,format=raw,file=#{fm1_path},readonly=on")
-            cmd += %W(-drive "if=pflash,format=raw,file=#{fm2_path}")
+            fm1_path = id_dir.join("edk2-aarch64-code.fd").to_s
+            fm2_path = id_dir.join("edk2-arm-vars.fd").to_s
+            cmd += %W(-drive if=pflash,format=raw,file=#{fm1_path},readonly=on)
+            cmd += %W(-drive if=pflash,format=raw,file=#{fm2_path})
           end
 
           # control
@@ -69,19 +69,24 @@ module VagrantPlugins
           cmd += %W(-serial null -parallel null -monitor none -display none -vga none)
           cmd += %W(-daemonize)
 
-          execute(cmd)
+          execute(*cmd)
         end
       end
 
       def stop
         if running?
-          unix_socket_path = id_dir.join("qemu_socket")
+          id_dir = @data_dir.join(@vm_id)
+          unix_socket_path = id_dir.join("qemu_socket").to_s
+          sent = false
           execute("nc", "-w", "5", "-U", unix_socket_path) do |type, data|
-          case type
-          when :stdin
-            data.write("system_powerdown")
+            case type
+            when :stdin
+              if !sent
+                data.write("system_powerdown\n")
+                sent = true
+              end
+            end
           end
-        end
         end
       end
 
@@ -93,11 +98,11 @@ module VagrantPlugins
         FileUtils.mkdir_p(id_dir)
 
         # Prepare firmware
-        execute("cp", options[:qemu_dir].join("edk2-aarch64-code.fd"), id_dir.join("edk2-aarch64-code.fd"))
-        execute("cp", options[:qemu_dir].join("edk2-arm-vars.fd"), id_dir.join("edk2-arm-vars.fd"))
+        execute("cp", options[:qemu_dir].join("edk2-aarch64-code.fd").to_s, id_dir.join("edk2-aarch64-code.fd").to_s)
+        execute("cp", options[:qemu_dir].join("edk2-arm-vars.fd").to_s, id_dir.join("edk2-arm-vars.fd").to_s)
 
         # Create image
-        execute("qemu-img", "create", "-f", "qcow2", "-F", "qcow2", "-b", options[:image_path], id_dir.join("linked-box.img"))
+        execute("qemu-img", "create", "-f", "qcow2", "-F", "qcow2", "-b", options[:image_path].to_s, id_dir.join("linked-box.img").to_s)
 
         server = {
           :id => new_id,

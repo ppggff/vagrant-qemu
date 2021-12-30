@@ -25,7 +25,7 @@ module VagrantPlugins
           end
 
           qemu_dir = Pathname.new(env[:machine].provider_config.qemu_dir)
-          if qemu_dir.directory?
+          if !qemu_dir.directory?
             @logger.error("Invalid qemu dir: #{qemu_dir}")
             raise Errors::BoxInvalid, name: env[:machine].name
           else
