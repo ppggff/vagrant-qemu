@@ -11,6 +11,9 @@ module VagrantPlugins
       def initialize(machine)
         @machine = machine
 
+        # TODO support NFS
+        @machine.config.nfs.functional = false
+
         # This method will load in our driver, so we call it now to
         # initialize it.
         machine_id_changed
