@@ -19,12 +19,12 @@ module VagrantPlugins
       machines in QEMU.
       DESC
 
-      config(:qemu, :provider) do
+      config(:libvirt, :provider) do
         require_relative "config"
         Config
       end
 
-      provider(:qemu, parallel: true) do
+      provider(:libvirt, parallel: true) do
         # Setup logging and i18n
         setup_logging
         setup_i18n

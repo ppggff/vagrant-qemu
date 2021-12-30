@@ -44,7 +44,8 @@ module VagrantPlugins
       end
 
       def validate(machine)
-        errors = _detected_errors
+        # errors = _detected_errors
+        errors = []
         { "QEMU Provider" => errors }
       end
     end
