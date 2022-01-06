@@ -12,12 +12,14 @@ module VagrantPlugins
         end
 
         def call(env)
-          image_path = env[:machine].box.directory.join("box.img")
+          image_path = nil
           if env[:machine].provider_config.image_path
             image_path = Pathname.new(env[:machine].provider_config.image_path)
+          elsif env[:machine].box
+            image_path = env[:machine].box.directory.join("box.img")
           end
 
-          if !image_path.file?
+          if !image_path || !image_path.file?
             @logger.error("Invalid box image path: #{image_path}")
             raise Errors::BoxInvalid, name: env[:machine].name
           else
