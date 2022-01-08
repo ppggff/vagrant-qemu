@@ -28,7 +28,7 @@ Install plugin:
 vagrant plugin install vagrant-qemu-x.x.x.gem
 ```
 
-Prepare a `Vagrantfile`, and start:
+Prepare a `Vagrantfile`, see [Example](#example), and start:
 
 ```
 vagrant up --provider qemu
@@ -76,7 +76,14 @@ end
 
 ## Example
 
-1. With a local box
+1. Try with a sample box
+
+```
+vagrant init ppggff/centos-7-aarch64-2009-4K
+vagrant up --provider qemu
+```
+
+2. With a local box
 
 ```
 # Basic Vagrant config (API version 2)
@@ -87,7 +94,7 @@ Vagrant.configure(2) do |config|
 end
 ```
 
-2. With a local qcow2
+3. With a local qcow2
 
 ```
 # Basic Vagrant config (API version 2)
@@ -118,7 +125,6 @@ bundle exec rake build
 
 ## TODO
 
-* Support example image
 * Support NFS shared folder
 * Support package VM to box
 * Test on more architectures
