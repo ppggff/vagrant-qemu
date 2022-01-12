@@ -25,7 +25,7 @@ brew install qemu
 Install plugin:
 
 ```
-vagrant plugin install vagrant-qemu-x.x.x.gem
+vagrant plugin install vagrant-qemu
 ```
 
 Prepare a `Vagrantfile`, see [Example](#example), and start:
