@@ -8,7 +8,7 @@ Gem::Specification.new do |s|
   s.license       = "MIT"
   s.authors       = "ppggff"
   s.email         = "pgf00a@gmail.com.com"
-  s.homepage      = ""
+  s.homepage      = "https://github.com/ppggff/vagrant-qemu"
   s.summary       = "Enables Vagrant to manage machines with QEMU."
   s.description   = "Enables Vagrant to manage machines with QEMU."
 
