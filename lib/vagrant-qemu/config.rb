@@ -4,6 +4,7 @@ module VagrantPlugins
   module QEMU
     class Config < Vagrant.plugin("2", :config)
       attr_accessor :ssh_port
+      attr_accessor :web_port
       attr_accessor :arch
       attr_accessor :machine
       attr_accessor :cpu
@@ -15,6 +16,7 @@ module VagrantPlugins
 
       def initialize
         @ssh_port = UNSET_VALUE
+        @web_port = UNSET_VALUE
         @arch = UNSET_VALUE
         @machine = UNSET_VALUE
         @cpu = UNSET_VALUE
@@ -36,6 +38,7 @@ module VagrantPlugins
 
       def finalize!
         @ssh_port = 50022 if @ssh_port == UNSET_VALUE
+        @web_port = 8888 if @web_port == UNSET_VALUE
         @arch = "aarch64" if @arch == UNSET_VALUE
         @machine = "virt,accel=hvf,highmem=off" if @machine == UNSET_VALUE
         @cpu = "cortex-a72" if @cpu == UNSET_VALUE
