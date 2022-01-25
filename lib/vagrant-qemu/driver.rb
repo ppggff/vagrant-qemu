@@ -50,7 +50,7 @@ module VagrantPlugins
           cmd += %W(-cpu #{options[:cpu]})
           cmd += %W(-smp #{options[:smp]})
           cmd += %W(-m #{options[:memory]})
-          cmd += %W(-device #{options[:net_device],netdev=net0)
+          cmd += %W(-device #{options[:net_device]},netdev=net0)
           cmd += %W(-netdev user,id=net0,hostfwd=tcp::#{options[:ssh_port]}-:22)
 
           # drive

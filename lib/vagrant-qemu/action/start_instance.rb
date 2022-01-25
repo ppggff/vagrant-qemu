@@ -18,6 +18,7 @@ module VagrantPlugins
             :cpu => env[:machine].provider_config.cpu,
             :smp => env[:machine].provider_config.smp,
             :memory => env[:machine].provider_config.memory,
+            :net_device => env[:machine].provider_config.net_device,
           }
 
           env[:ui].output(I18n.t("vagrant_qemu.starting"))
