@@ -9,3 +9,7 @@
 # 0.1.2 (2022-01-06)
 
 * Support vm without box.
+
+# 0.1.3 (2022-01-25)
+
+* Add config 'net_device'.
