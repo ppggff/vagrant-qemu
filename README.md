@@ -108,6 +108,21 @@ Vagrant.configure(2) do |config|
 end
 ```
 
+4. Work with a x86_64 box (basic config)
+
+```
+Vagrant.configure(2) do |config|
+  config.vm.box = "centos/7"
+
+  config.vm.provider "qemu" do |qe|
+    qe.arch = "x86_64"
+    qe.machine = "q35"
+    qe.cpu = "max"
+    qe.net_device = "virtio-net-pci"
+  end
+end
+```
+
 ## Build
 
 To build the `vagrant-qemu` plugin, clone this repository out, and use
@@ -127,7 +142,6 @@ bundle exec rake build
 
 * Support NFS shared folder
 * Support package VM to box
-* Test on more architectures
 * More configures
 * Better error messages
 * Network
