@@ -9,6 +9,7 @@ module VagrantPlugins
       attr_accessor :cpu
       attr_accessor :smp
       attr_accessor :memory
+      attr_accessor :net_device
       attr_accessor :image_path
       attr_accessor :qemu_dir
 
@@ -19,6 +20,7 @@ module VagrantPlugins
         @cpu = UNSET_VALUE
         @smp = UNSET_VALUE
         @memory = UNSET_VALUE
+        @net_device = UNSET_VALUE
         @image_path = UNSET_VALUE
         @qemu_dir = UNSET_VALUE
       end
@@ -39,6 +41,7 @@ module VagrantPlugins
         @cpu = "cortex-a72" if @cpu == UNSET_VALUE
         @smp = "2" if @smp == UNSET_VALUE
         @memory = "4G" if @memory == UNSET_VALUE
+        @net_device = "virtio-net-device" if @net_device == UNSET_VALUE
         @image_path = nil if @image_path == UNSET_VALUE
         @qemu_dir = "/opt/homebrew/share/qemu" if @qemu_dir == UNSET_VALUE
       end
