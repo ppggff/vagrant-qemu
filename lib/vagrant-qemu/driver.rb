@@ -39,7 +39,7 @@ module VagrantPlugins
         if !running?
           id_dir = @data_dir.join(@vm_id)
           image_path = id_dir.join("linked-box.img").to_s
-          unix_socket_path = id_dir.join("qemu_socket").to_s
+          unix_socket_path = [Dir.home, '/.vagrant.d/tmp/' , @vm_id,  '_qemu_socket'].join.to_s
           pid_file = id_dir.join("qemu.pid").to_s
 
           cmd = []
@@ -76,7 +76,7 @@ module VagrantPlugins
       def stop
         if running?
           id_dir = @data_dir.join(@vm_id)
-          unix_socket_path = id_dir.join("qemu_socket").to_s
+          unix_socket_path = [Dir.home, '/.vagrant.d/tmp/' , @vm_id,  '_qemu_socket'].join.to_s
           sent = false
           execute("nc", "-w", "5", "-U", unix_socket_path) do |type, data|
             case type
