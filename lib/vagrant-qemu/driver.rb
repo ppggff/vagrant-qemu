@@ -11,10 +11,12 @@ module VagrantPlugins
       # @return [String] VM ID
       attr_reader :vm_id
       attr_reader :data_dir
+      attr_reader :tmp_dir
 
-      def initialize(id, dir)
+      def initialize(id, dir, tmp)
         @vm_id = id
         @data_dir = dir
+        @tmp_dir = tmp.join("vagrant-qemu")
       end
 
       def get_current_state
@@ -32,6 +34,8 @@ module VagrantPlugins
         if created?
           id_dir = @data_dir.join(@vm_id)
           FileUtils.rm_rf(id_dir)
+          id_tmp_dir = @tmp_dir.join(@vm_id)
+          FileUtils.rm_rf(id_tmp_dir)
         end
       end
 
@@ -39,8 +43,11 @@ module VagrantPlugins
         if !running?
           id_dir = @data_dir.join(@vm_id)
           image_path = id_dir.join("linked-box.img").to_s
-          unix_socket_path = id_dir.join("qemu_socket").to_s
           pid_file = id_dir.join("qemu.pid").to_s
+
+          id_tmp_dir = @tmp_dir.join(@vm_id)
+          FileUtils.mkdir_p(id_tmp_dir)
+          unix_socket_path = id_tmp_dir.join("qemu_socket").to_s
 
           cmd = []
           cmd += %W(qemu-system-#{options[:arch]})
@@ -81,8 +88,8 @@ module VagrantPlugins
 
       def stop
         if running?
-          id_dir = @data_dir.join(@vm_id)
-          unix_socket_path = id_dir.join("qemu_socket").to_s
+          id_tmp_dir = @tmp_dir.join(@vm_id)
+          unix_socket_path = id_tmp_dir.join("qemu_socket").to_s
           sent = false
           execute("nc", "-w", "5", "-U", unix_socket_path) do |type, data|
             case type
@@ -102,6 +109,8 @@ module VagrantPlugins
         # Make dir
         id_dir = @data_dir.join(new_id)
         FileUtils.mkdir_p(id_dir)
+        id_tmp_dir = @tmp_dir.join(new_id)
+        FileUtils.mkdir_p(id_tmp_dir)
 
         # Prepare firmware
         execute("cp", options[:qemu_dir].join("edk2-aarch64-code.fd").to_s, id_dir.join("edk2-aarch64-code.fd").to_s)

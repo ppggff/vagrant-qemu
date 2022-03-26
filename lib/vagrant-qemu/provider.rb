@@ -29,7 +29,7 @@ module VagrantPlugins
       end
 
       def machine_id_changed
-        @driver = Driver.new(@machine.id, @machine.data_dir)
+        @driver = Driver.new(@machine.id, @machine.data_dir, @machine.env.tmp_path)
       end
 
       def ssh_info
