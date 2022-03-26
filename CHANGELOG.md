@@ -16,3 +16,8 @@
 # 0.1.6 (2022-01-25)
 
 * Add config 'net_device'.
+
+# 0.1.7 (2022-03-26)
+
+* Add basic support to forwarded ports.
+* Move unix_socket to `<user_home>/.vagrant.d/tmp`.
