@@ -13,6 +13,7 @@ to control and provision machines using QEMU.
 * Provision the instances with any built-in Vagrant provisioner
 * Synced folder support via SMB
 * Basic operation: up, ssh, halt, destroy
+* Basic suport to forwarded ports, see [vagrant doc](https://www.vagrantup.com/docs/networking/forwarded_ports) for details
 
 ## Usage
 
@@ -58,6 +59,7 @@ This provider exposes a few provider-specific configuration options:
 * `cpu` - The cpu model of VM, default: `cortex-a72`
 * `smp` - The smp setting (Simulate an SMP system with n CPUs) of VM, default: `2`
 * `memory` - The memory setting of VM, default: `4G`
+* `net_device` - The network device, default: `virtio-net-device`
 * `image_path` - The path to qcow2 image for box-less VM, default is nil value
 * `qemu_dir` - The path to QEMU's install dir, default: `/opt/homebrew/share/qemu`
 
@@ -120,6 +122,17 @@ Vagrant.configure(2) do |config|
     qe.cpu = "max"
     qe.net_device = "virtio-net-pci"
   end
+end
+```
+
+5. Forwarded ports
+
+```
+# Basic Vagrant config (API version 2)
+Vagrant.configure(2) do |config|
+  # ... other stuff
+
+  config.vm.network "forwarded", guest: 80, host: 8080
 end
 ```
 
