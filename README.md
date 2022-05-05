@@ -195,3 +195,4 @@ end
 * Better error messages
 * Network
 * GUI mode
+* Support other box format, such as vmware, parallel
