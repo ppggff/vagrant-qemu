@@ -136,6 +136,17 @@ Vagrant.configure(2) do |config|
 end
 ```
 
+## Debug
+
+Serial port is exported to unix socket: `<user_home>/.vagrant.d/tmp/vagrant-qemu/<id>/qemu_socket_serial`.
+To debug and login to the GuestOS from serial port:
+
+1. Get the id: `.vagrant/machines/default/qemu/id` in same directory with `Vagrantfile`
+2. Get the path to `qemu_socket_serial`
+3. Use `nc` to connect: `nc -U /Users/.../qemu_socket_serial`
+
+To send ctrl+c to GuestOS from `nc`, try `echo 03 | xxd -r -p | nc -U /Users/.../qemu_socket_serial`
+
 ## Build
 
 To build the `vagrant-qemu` plugin, clone this repository out, and use

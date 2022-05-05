@@ -48,6 +48,7 @@ module VagrantPlugins
           id_tmp_dir = @tmp_dir.join(@vm_id)
           FileUtils.mkdir_p(id_tmp_dir)
           unix_socket_path = id_tmp_dir.join("qemu_socket").to_s
+          unix_socket_serial_path = id_tmp_dir.join("qemu_socket_serial").to_s
 
           cmd = []
           cmd += %W(qemu-system-#{options[:arch]})
@@ -78,8 +79,10 @@ module VagrantPlugins
           # control
           cmd += %W(-chardev socket,id=mon0,path=#{unix_socket_path},server=on,wait=off)
           cmd += %W(-mon chardev=mon0,mode=readline)
+          cmd += %W(-chardev socket,id=ser0,path=#{unix_socket_serial_path},server=on,wait=off)
+          cmd += %W(-serial chardev:ser0)
           cmd += %W(-pidfile #{pid_file})
-          cmd += %W(-serial null -parallel null -monitor none -display none -vga none)
+          cmd += %W(-parallel null -monitor none -display none -vga none)
           cmd += %W(-daemonize)
 
           execute(*cmd)
