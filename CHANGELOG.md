@@ -21,3 +21,8 @@
 
 * Add basic support to forwarded ports.
 * Move unix_socket to `<user_home>/.vagrant.d/tmp`.
+
+# 0.1.8 (2022-05-05)
+
+* Fix port collision problem with default ssh port 2222.
+* Export serial port to unix socket for debug.
