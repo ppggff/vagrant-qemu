@@ -162,6 +162,31 @@ Once you have the dependencies, build with `rake`:
 bundle exec rake build
 ```
 
+## Known issue
+
+### 1. failed to create shared folder
+
+```
+We couldn't detect an IP address that was routable to this
+machine from the guest machine! Please verify networking is properly
+setup in the guest machine and that it is able to access this
+host.
+
+As another option, you can manually specify an IP for the machine
+to mount from using the `smb_host` option to the synced folder.
+```
+
+The reason is that the user mode of qemu currently in use does not support ping.
+`smb_host` needs to be explicitly specified. For example:
+
+```
+Vagrant.configure("2") do |config|
+  # ... other stuff
+
+  config.vm.synced_folder ".", "/vagrant", type: "smb", smb_host: "10.0.2.2"
+end
+```
+
 ## TODO
 
 * Support NFS shared folder
