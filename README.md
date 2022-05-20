@@ -162,7 +162,7 @@ Once you have the dependencies, build with `rake`:
 bundle exec rake build
 ```
 
-## Known issue
+## Known issue / Troubleshooting
 
 ### 1. failed to create shared folder
 
@@ -186,6 +186,14 @@ Vagrant.configure("2") do |config|
   config.vm.synced_folder ".", "/vagrant", type: "smb", smb_host: "10.0.2.2"
 end
 ```
+
+### 2. netcat does not support the -U parameter
+
+I had netcat installed through home brew and it does not support the -U parameter.
+
+I fixed it by uninstalling netcat in home brew brew uninstall netcat
+
+Thanks @kjeldahl fix this at [issue #6](https://github.com/ppggff/vagrant-qemu/issues/6)
 
 ## TODO
 
