@@ -3,11 +3,12 @@
 This is a Vagrant plugin that adds a simple QEMU provider to Vagrant, allowing Vagrant
 to control and provision machines using QEMU.
 
-**Notes: test with Apple Silicon / M1 and CentOS aarch64 image only**
+**Notes: test with Apple Silicon / M1 and CentOS / Ubuntu aarch64 image**
 
 ## Features
 
 * Import from a Libvirt vagrant box or qcow2 image
+  * To use box for **Paralles or VMware Fusion**, see [Wiki](https://github.com/ppggff/vagrant-qemu/wiki) for details
 * Start VM without GUI
 * SSH into VM
 * Provision the instances with any built-in Vagrant provisioner
