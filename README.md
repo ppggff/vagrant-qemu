@@ -133,7 +133,7 @@ end
 Vagrant.configure(2) do |config|
   # ... other stuff
 
-  config.vm.network "forwarded", guest: 80, host: 8080
+  config.vm.network "forwarded_port", guest: 80, host: 8080
 end
 ```
 
@@ -204,4 +204,3 @@ Thanks @kjeldahl fix this at [issue #6](https://github.com/ppggff/vagrant-qemu/i
 * Better error messages
 * Network
 * GUI mode
-* Support other box format, such as vmware, parallel
