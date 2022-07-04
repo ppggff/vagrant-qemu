@@ -201,7 +201,7 @@ Thanks @kjeldahl fix this at [issue #6](https://github.com/ppggff/vagrant-qemu/i
 If you get this error when running `vagrant up`
 
 1. On your M1 Mac, go to System Preferences > Sharing > File Sharing > Options...
-2. Tick "Shre Files and Folders using SMB
+2. Tick "Share Files and Folders using SMB
 3. Tick your username
 4. Click Done
 5. Run `vagrant up` again
