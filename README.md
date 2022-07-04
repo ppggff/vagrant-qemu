@@ -196,6 +196,16 @@ I fixed it by uninstalling netcat in home brew brew uninstall netcat
 
 Thanks @kjeldahl fix this at [issue #6](https://github.com/ppggff/vagrant-qemu/issues/6)
 
+### 3. Vagrant SMB synced folders require the account password to be stored in an NT compatible format
+
+If you get this error when running `vagrant up`
+
+1. On your M1 Mac, go to System Preferences > Sharing > File Sharing > Options...
+2. Tick "Shre Files and Folders using SMB
+3. Tick your username
+4. Click Done
+5. Run `vagrant up` again
+
 ## TODO
 
 * Support NFS shared folder
