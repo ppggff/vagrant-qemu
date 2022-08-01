@@ -26,3 +26,7 @@
 
 * Fix port collision problem with default ssh port 2222.
 * Export serial port to unix socket for debug.
+
+# 0.1.9 (2022-08-01)
+
+* Set default config for newer qemu (>=7.0.0)

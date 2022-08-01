@@ -37,8 +37,8 @@ module VagrantPlugins
       def finalize!
         @ssh_port = 50022 if @ssh_port == UNSET_VALUE
         @arch = "aarch64" if @arch == UNSET_VALUE
-        @machine = "virt,accel=hvf,highmem=off" if @machine == UNSET_VALUE
-        @cpu = "cortex-a72" if @cpu == UNSET_VALUE
+        @machine = "virt,accel=hvf,highmem=on" if @machine == UNSET_VALUE
+        @cpu = "host" if @cpu == UNSET_VALUE
         @smp = "2" if @smp == UNSET_VALUE
         @memory = "4G" if @memory == UNSET_VALUE
         @net_device = "virtio-net-device" if @net_device == UNSET_VALUE

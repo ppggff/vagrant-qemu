@@ -5,6 +5,26 @@ to control and provision machines using QEMU.
 
 **Notes: test with Apple Silicon / M1 and CentOS / Ubuntu aarch64 image**
 
+## Compatible with
+
+Tested:
+
+* MacOS >= 12.4
+* QEMU >= 7.0.0
+* CentOS (centos-7-aarch64-2009-4K)
+* Ubuntu (see [Wiki](https://github.com/ppggff/vagrant-qemu/wiki) for detais)
+
+Others:
+
+* (MacOS < 12.4) + (QEMU >= 7.0.0) : update OS, or use QEMU 6.x
+* QEMU 6.x: use following config:
+  ```
+  config.vm.provider "qemu" do |qe|
+    qe.machine = "virt,accel=hvf,highmem=off"
+    qe.cpu = "cortex-a72"
+  end
+  ```
+
 ## Features
 
 * Import from a Libvirt vagrant box or qcow2 image
