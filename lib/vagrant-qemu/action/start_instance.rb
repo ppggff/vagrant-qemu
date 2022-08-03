@@ -17,6 +17,7 @@ module VagrantPlugins
             :machine => env[:machine].provider_config.machine,
             :cpu => env[:machine].provider_config.cpu,
             :smp => env[:machine].provider_config.smp,
+            :accel => env[:machine].provider_config.accel,
             :memory => env[:machine].provider_config.memory,
             :net_device => env[:machine].provider_config.net_device,
             :ports => forwarded_ports(env)

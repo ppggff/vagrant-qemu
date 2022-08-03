@@ -56,9 +56,10 @@ module VagrantPlugins
           # basic
           cmd += %W(-machine #{options[:machine]})
           cmd += %W(-cpu #{options[:cpu]})
-          cmd += %W(-smp #{options[:smp]})
+          cmd += %W(-smp cpus=#{options[:smp]},sockets=1,cores=#{options[:smp]},threads=1)
           cmd += %W(-m #{options[:memory]})
           cmd += %W(-device #{options[:net_device]},netdev=net0)
+          cmd += %W(-accel #{options[:accel]})
 
           # ports
           hostfwd = "hostfwd=tcp::#{options[:ssh_port]}-:22"

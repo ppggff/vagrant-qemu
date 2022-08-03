@@ -12,6 +12,7 @@ module VagrantPlugins
       attr_accessor :net_device
       attr_accessor :image_path
       attr_accessor :qemu_dir
+      attr_accessor :accel
 
       def initialize
         @ssh_port = UNSET_VALUE
@@ -23,6 +24,7 @@ module VagrantPlugins
         @net_device = UNSET_VALUE
         @image_path = UNSET_VALUE
         @qemu_dir = UNSET_VALUE
+        @accel = UNSET_VALUE
       end
 
       #-------------------------------------------------------------------
@@ -44,6 +46,7 @@ module VagrantPlugins
         @net_device = "virtio-net-device" if @net_device == UNSET_VALUE
         @image_path = nil if @image_path == UNSET_VALUE
         @qemu_dir = "/opt/homebrew/share/qemu" if @qemu_dir == UNSET_VALUE
+        @accel = nil if @accel == UNSET_VALUE
       end
 
       def validate(machine)

@@ -79,6 +79,7 @@ This provider exposes a few provider-specific configuration options:
 * `machine` - The machine type of VM, default: `virt,accel=hvf,highmem=off`
 * `cpu` - The cpu model of VM, default: `cortex-a72`
 * `smp` - The smp setting (Simulate an SMP system with n CPUs) of VM, default: `2`
+* `accel` - select accelerator (kvm, xen, hax, hvf, nvmm, whpx or tcg) with properties, default is nil value
 * `memory` - The memory setting of VM, default: `4G`
 * `net_device` - The network device, default: `virtio-net-device`
 * `image_path` - The path to qcow2 image for box-less VM, default is nil value
@@ -146,7 +147,24 @@ Vagrant.configure(2) do |config|
 end
 ```
 
-5. Forwarded ports
+5. Force Multicore
+Force multicore may improve speed of emulation but also might result in unstable and incorrect emulation.
+
+```
+Vagrant.configure(2) do |config|
+  config.vm.box = "centos/7"
+
+  config.vm.provider "qemu" do |qe|
+    qe.arch = "x86_64"
+    qe.machine = "q35"
+    qe.cpu = "max"
+    qe.accel = "tcg,thread=multi,tb-size=512"
+    qe.net_device = "virtio-net-pci"
+  end
+end
+```
+
+6. Forwarded ports
 
 ```
 # Basic Vagrant config (API version 2)
