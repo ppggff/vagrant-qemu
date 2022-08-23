@@ -226,6 +226,22 @@ If you get this error when running `vagrant up`
 4. Click Done
 5. Run `vagrant up` again
 
+### 4. The box you're using with the QEMU provider ('default') is invalid
+
+This may cause by invalid default qemu dir (`/opt/homebrew/share/qemu`).
+
+You can find the correct one by:
+```
+echo `brew --prefix`/share/qemu
+```
+
+And then set it (for example `/usr/local/share/qemu`) in the `Vagrantfile` as:
+```
+config.vm.provider "qemu" do |qe|
+  qe.qemu_dir = "/usr/local/share/qemu"
+end
+```
+
 ## TODO
 
 * Support NFS shared folder
