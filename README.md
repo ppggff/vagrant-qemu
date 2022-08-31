@@ -83,6 +83,7 @@ This provider exposes a few provider-specific configuration options:
 * `net_device` - The network device, default: `virtio-net-device`
 * `image_path` - The path to qcow2 image for box-less VM, default is nil value
 * `qemu_dir` - The path to QEMU's install dir, default: `/opt/homebrew/share/qemu`
+* `extra_qemu_args` - The raw list of additional arguments to pass to QEMU. Use with extreme caution.
 
 These can be set like typical provider-specific configuration:
 

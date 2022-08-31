@@ -85,6 +85,9 @@ module VagrantPlugins
           cmd += %W(-parallel null -monitor none -display none -vga none)
           cmd += %W(-daemonize)
 
+          # user-defined
+          cmd += options[:extra_qemu_args]
+
           execute(*cmd)
         end
       end
