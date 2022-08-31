@@ -42,6 +42,8 @@ en:
       box_invalid: |-
         The box you're using with the QEMU provider ('%{name}')
         is invalid.
+
+        Error: %{err}
       execute_error: |-
         A command executed by Vagrant didn't complete successfully!
         The command run along with the output from the command is shown
@@ -52,3 +54,7 @@ en:
         Stderr: %{stderr}
 
         Stdout: %{stdout}
+      config_error: |-
+        Invalid config.
+
+        Error: %{err}

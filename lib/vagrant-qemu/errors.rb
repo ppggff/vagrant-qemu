@@ -26,6 +26,10 @@ module VagrantPlugins
       class ExecuteError < VagrantQEMUError
         error_key(:execute_error)
       end
+
+      class ConfigError < VagrantQEMUError
+        error_key(:config_error)
+      end
     end
   end
 end

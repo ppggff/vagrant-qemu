@@ -21,7 +21,7 @@ module VagrantPlugins
 
           if !image_path || !image_path.file?
             @logger.error("Invalid box image path: #{image_path}")
-            raise Errors::BoxInvalid, name: env[:machine].name
+            raise Errors::BoxInvalid, name: env[:machine].name, err: "Invalid box image path: #{image_path}"
           else
             @logger.info("Found box image path: #{image_path}")
           end
@@ -29,7 +29,7 @@ module VagrantPlugins
           qemu_dir = Pathname.new(env[:machine].provider_config.qemu_dir)
           if !qemu_dir.directory?
             @logger.error("Invalid qemu dir: #{qemu_dir}")
-            raise Errors::BoxInvalid, name: env[:machine].name
+            raise Errors::ConfigError, err: "Invalid qemu dir: #{qemu_dir}"
           else
             @logger.info("Found qemu dir: #{qemu_dir}")
           end
