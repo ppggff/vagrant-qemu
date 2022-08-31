@@ -83,7 +83,7 @@ This provider exposes a few provider-specific configuration options:
 * `net_device` - The network device, default: `virtio-net-device`
 * `image_path` - The path to qcow2 image for box-less VM, default is nil value
 * `qemu_dir` - The path to QEMU's install dir, default: `/opt/homebrew/share/qemu`
-* `extra_qemu_args` - The raw list of additional arguments to pass to QEMU. Use with extreme caution.
+* `extra_qemu_args` - The raw list of additional arguments to pass to QEMU. Use with extreme caution. (see "Force Multicore" below as example)
 
 These can be set like typical provider-specific configuration:
 
@@ -155,6 +155,26 @@ Vagrant.configure(2) do |config|
   # ... other stuff
 
   config.vm.network "forwarded_port", guest: 80, host: 8080
+end
+```
+
+6. Force Multicore (x86)
+
+Thanks to [taraszka](https://github.com/taraszka) for providing this config.
+
+```
+Vagrant.configure("2") do |config|
+  config.vm.box = "centos/7"
+
+  config.vm.provider "qemu" do |qe|
+    qe.arch = "x86_64"
+    qe.machine = "q35"
+    qe.cpu = "max"
+    qe.smp = "cpus=2,sockets=1,cores=2,threads=1"
+    qe.net_device = "virtio-net-pci"
+    qe.extra_qemu_args = %w(-accel tcg,thread=multi,tb-size=512)
+    qe.qemu_dir = "/usr/local/share/qemu"
+  end
 end
 ```
 
