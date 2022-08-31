@@ -119,8 +119,10 @@ module VagrantPlugins
         FileUtils.mkdir_p(id_tmp_dir)
 
         # Prepare firmware
-        execute("cp", options[:qemu_dir].join("edk2-aarch64-code.fd").to_s, id_dir.join("edk2-aarch64-code.fd").to_s)
-        execute("cp", options[:qemu_dir].join("edk2-arm-vars.fd").to_s, id_dir.join("edk2-arm-vars.fd").to_s)
+        if options[:arch] == "aarch64"
+          execute("cp", options[:qemu_dir].join("edk2-aarch64-code.fd").to_s, id_dir.join("edk2-aarch64-code.fd").to_s)
+          execute("cp", options[:qemu_dir].join("edk2-arm-vars.fd").to_s, id_dir.join("edk2-arm-vars.fd").to_s)
+        end
 
         # Create image
         execute("qemu-img", "create", "-f", "qcow2", "-F", "qcow2", "-b", options[:image_path].to_s, id_dir.join("linked-box.img").to_s)
