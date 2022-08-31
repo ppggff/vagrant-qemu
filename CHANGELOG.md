@@ -30,3 +30,9 @@
 # 0.1.9 (2022-08-01)
 
 * Set default config for newer qemu (>=7.0.0)
+
+# 0.2.0 (2022-08-31)
+
+* Add config extra_qemu_args'.
+* Refine error message, such as 'Invalid qemu dir'.
+* Add a 'Force Multicore' to Readme.
