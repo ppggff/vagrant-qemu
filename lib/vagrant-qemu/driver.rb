@@ -100,15 +100,10 @@ module VagrantPlugins
         if running?
           id_tmp_dir = @tmp_dir.join(@vm_id)
           unix_socket_path = id_tmp_dir.join("qemu_socket").to_s
-          sent = false
-          execute("nc", "-w", "5", "-U", unix_socket_path) do |type, data|
-            case type
-            when :stdin
-              if !sent
-                data.write("system_powerdown\n")
-                sent = true
-              end
-            end
+          Socket.unix(unix_socket_path) do |sock|
+            sock.print "system_powerdown\n"
+            sock.close_write
+            sock.read
           end
         end
       end
