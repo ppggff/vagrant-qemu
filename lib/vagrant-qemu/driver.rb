@@ -65,7 +65,11 @@ module VagrantPlugins
           options[:ports].each do |v|
             hostfwd += ",hostfwd=#{v}"
           end
-          cmd += %W(-netdev user,id=net0,#{hostfwd})
+          extra_netdev = ""
+          if !options[:extra_netdev_args].nil?
+            extra_netdev = ",#{options[:extra_netdev_args]}"
+          end
+          cmd += %W(-netdev user,id=net0,#{hostfwd}#{extra_netdev})
 
           # drive
           cmd += %W(-drive if=virtio,format=qcow2,file=#{image_path})

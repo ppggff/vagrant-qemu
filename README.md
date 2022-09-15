@@ -84,6 +84,7 @@ This provider exposes a few provider-specific configuration options:
 * `image_path` - The path to qcow2 image for box-less VM, default is nil value
 * `qemu_dir` - The path to QEMU's install dir, default: `/opt/homebrew/share/qemu`
 * `extra_qemu_args` - The raw list of additional arguments to pass to QEMU. Use with extreme caution. (see "Force Multicore" below as example)
+* `extra_netdev_args` - extra, comma-separated arguments to pass to the -netdev parameter. Use with caution. (see "Force Local IP" below as example)
 
 These can be set like typical provider-specific configuration:
 
@@ -174,6 +175,18 @@ Vagrant.configure("2") do |config|
     qe.net_device = "virtio-net-pci"
     qe.extra_qemu_args = %w(-accel tcg,thread=multi,tb-size=512)
     qe.qemu_dir = "/usr/local/share/qemu"
+  end
+end
+```
+
+7. Force Local IP
+
+```
+Vagrant.configure("2") do |config|
+  config.vm.box = "debian/bullseye64"
+
+  config.vm.provider "qemu" do |qe|
+    qe.extra_netdev_args = "net=192.168.51.0/24,dhcpstart=192.168.51.10"
   end
 end
 ```

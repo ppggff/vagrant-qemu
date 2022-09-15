@@ -13,6 +13,7 @@ module VagrantPlugins
       attr_accessor :image_path
       attr_accessor :qemu_dir
       attr_accessor :extra_qemu_args
+      attr_accessor :extra_netdev_args
 
       def initialize
         @ssh_port = UNSET_VALUE
@@ -25,6 +26,7 @@ module VagrantPlugins
         @image_path = UNSET_VALUE
         @qemu_dir = UNSET_VALUE
         @extra_qemu_args = UNSET_VALUE
+        @extra_netdev_args = UNSET_VALUE
       end
 
       #-------------------------------------------------------------------
@@ -47,6 +49,7 @@ module VagrantPlugins
         @image_path = nil if @image_path == UNSET_VALUE
         @qemu_dir = "/opt/homebrew/share/qemu" if @qemu_dir == UNSET_VALUE
         @extra_qemu_args = [] if @extra_qemu_args == UNSET_VALUE
+        @extra_netdev_args = nil if @extra_netdev_args == UNSET_VALUE
       end
 
       def validate(machine)
