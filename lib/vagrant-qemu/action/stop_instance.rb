@@ -8,8 +8,12 @@ module VagrantPlugins
         end
 
         def call(env)
+          options = {
+            :control_port => env[:machine].provider_config.control_port
+          }
+
           env[:ui].info(I18n.t("vagrant_qemu.stopping"))
-          env[:machine].provider.driver.stop
+          env[:machine].provider.driver.stop(options)
           @app.call(env)
         end
       end

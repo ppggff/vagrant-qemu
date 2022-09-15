@@ -47,8 +47,22 @@ module VagrantPlugins
 
           id_tmp_dir = @tmp_dir.join(@vm_id)
           FileUtils.mkdir_p(id_tmp_dir)
-          unix_socket_path = id_tmp_dir.join("qemu_socket").to_s
-          unix_socket_serial_path = id_tmp_dir.join("qemu_socket_serial").to_s
+
+          control_socket = ""
+          if !options[:control_port].nil?
+            control_socket = "port=#{options[:control_port]},host=localhost,ipv4=on"
+          else
+            unix_socket_path = id_tmp_dir.join("qemu_socket").to_s
+            control_socket = "path=#{unix_socket_path}"
+          end
+
+          debug_socket = ""
+          if !options[:debug_port].nil?
+            debug_socket = "port=#{options[:debug_port]},host=localhost,ipv4=on"
+          else
+            unix_socket_serial_path = id_tmp_dir.join("qemu_socket_serial").to_s
+            debug_socket = "path=#{unix_socket_serial_path}"
+          end
 
           cmd = []
           cmd += %W(qemu-system-#{options[:arch]})
@@ -81,30 +95,40 @@ module VagrantPlugins
           end
 
           # control
-          cmd += %W(-chardev socket,id=mon0,path=#{unix_socket_path},server=on,wait=off)
+          cmd += %W(-chardev socket,id=mon0,#{control_socket},server=on,wait=off)
           cmd += %W(-mon chardev=mon0,mode=readline)
-          cmd += %W(-chardev socket,id=ser0,path=#{unix_socket_serial_path},server=on,wait=off)
+          cmd += %W(-chardev socket,id=ser0,#{debug_socket},server=on,wait=off)
           cmd += %W(-serial chardev:ser0)
           cmd += %W(-pidfile #{pid_file})
           cmd += %W(-parallel null -monitor none -display none -vga none)
-          cmd += %W(-daemonize)
+          if !options[:no_daemonize]
+            cmd += %W(-daemonize)
+          end
 
           # user-defined
           cmd += options[:extra_qemu_args]
 
-          execute(*cmd)
+          execute(*cmd, {:detach => options[:no_daemonize]})
         end
       end
 
-      def stop
+      def stop(options)
         if running?
-          id_tmp_dir = @tmp_dir.join(@vm_id)
-          unix_socket_path = id_tmp_dir.join("qemu_socket").to_s
-          Socket.unix(unix_socket_path) do |sock|
-            sock.print "system_powerdown\n"
-            sock.close_write
-            sock.read
-          end
+          if !options[:control_port].nil?
+            Socket.tcp("localhost", options[:control_port], connect_timeout: 5) do |sock|
+              sock.print "system_powerdown\n"
+              sock.close_write
+              sock.read
+            end
+          else
+            id_tmp_dir = @tmp_dir.join(@vm_id)
+            unix_socket_path = id_tmp_dir.join("qemu_socket").to_s
+            Socket.unix(unix_socket_path) do |sock|
+              sock.print "system_powerdown\n"
+              sock.close_write
+              sock.read
+            end
+         end
         end
       end
 
@@ -149,12 +173,20 @@ module VagrantPlugins
 
       def execute(*cmd, **opts, &block)
         # Append in the options for subprocess
-        cmd << { notify: [:stdout, :stderr, :stdin] }
+        cmd << { notify: [:stdout, :stderr, :stdin], :detach => opts[:detach] }
 
         interrupted  = false
         int_callback = ->{ interrupted = true }
         result = ::Vagrant::Util::Busy.busy(int_callback) do
           ::Vagrant::Util::Subprocess.execute(*cmd, &block)
+        end
+
+        if opts
+          if opts[:detach]
+            # give it a little time to startup
+            sleep 5
+            return
+          end
         end
 
         result.stderr.gsub!("\r\n", "\n")

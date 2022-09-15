@@ -21,7 +21,10 @@ module VagrantPlugins
             :net_device => env[:machine].provider_config.net_device,
             :extra_qemu_args => env[:machine].provider_config.extra_qemu_args,
             :extra_netdev_args => env[:machine].provider_config.extra_netdev_args,
-            :ports => forwarded_ports(env)
+            :ports => forwarded_ports(env),
+            :control_port => env[:machine].provider_config.control_port,
+            :debug_port => env[:machine].provider_config.debug_port,
+            :no_daemonize => env[:machine].provider_config.no_daemonize
           }
 
           env[:ui].output(I18n.t("vagrant_qemu.starting"))
