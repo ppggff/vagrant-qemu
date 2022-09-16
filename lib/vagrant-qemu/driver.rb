@@ -1,6 +1,9 @@
+require 'childprocess'
 require 'securerandom'
 
 require "vagrant/util/busy"
+require 'vagrant/util/io'
+require "vagrant/util/safe_chdir"
 require "vagrant/util/subprocess"
 
 require_relative "plugin"
@@ -172,20 +175,72 @@ module VagrantPlugins
       end
 
       def execute(*cmd, **opts, &block)
-        # Append in the options for subprocess
-        cmd << { notify: [:stdout, :stderr, :stdin], :detach => opts[:detach] }
+        result = nil
 
-        interrupted  = false
-        int_callback = ->{ interrupted = true }
-        result = ::Vagrant::Util::Busy.busy(int_callback) do
-          ::Vagrant::Util::Subprocess.execute(*cmd, &block)
-        end
+        if opts && opts[:detach]
+          # give it some time to startup
+          timeout = 5
 
-        if opts
-          if opts[:detach]
-            # give it a little time to startup
-            sleep 5
-            return
+          # edit version of "Subprocess.execute" for detach
+          workdir = Dir.pwd
+          process = ChildProcess.build(*cmd)
+
+          stdout, stdout_writer = ::IO.pipe
+          stderr, stderr_writer = ::IO.pipe
+          process.io.stdout = stdout_writer
+          process.io.stderr = stderr_writer
+
+          process.leader = true
+          process.detach = true
+
+          ::Vagrant::Util::SafeChdir.safe_chdir(workdir) do
+            process.start
+          end
+
+          if RUBY_PLATFORM != "java"
+            stdout_writer.close
+            stderr_writer.close
+          end
+
+          io_data = { stdout: "", stderr: "" }
+          start_time = Time.now.to_i
+          open_readers = [stdout, stderr]
+
+          while true
+            results = ::IO.select(open_readers, nil, nil, 0.1)
+            results ||= []
+            readers = results[0]
+
+            # Check if we have exceeded our timeout
+            return if (Time.now.to_i - start_time) > timeout
+
+            if readers && !readers.empty?
+              readers.each do |r|
+                data = ::Vagrant::Util::IO.read_until_block(r)
+                next if data.empty?
+
+                io_name = r == stdout ? :stdout : :stderr
+                io_data[io_name] += data
+              end
+            end
+
+            break if process.exited?
+          end
+
+          if RUBY_PLATFORM == "java"
+            stdout_writer.close
+            stderr_writer.close
+          end
+
+          result = ::Vagrant::Util::Subprocess::Result.new(process.exit_code, io_data[:stdout], io_data[:stderr])
+        else
+          # Append in the options for subprocess
+          cmd << { notify: [:stdout, :stderr, :stdin] }
+
+          interrupted  = false
+          int_callback = ->{ interrupted = true }
+          result = ::Vagrant::Util::Busy.busy(int_callback) do
+            ::Vagrant::Util::Subprocess.execute(*cmd, &block)
           end
         end
 
