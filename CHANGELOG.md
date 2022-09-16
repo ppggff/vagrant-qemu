@@ -42,3 +42,7 @@
 * Add config extra_netdev_args.
 * Replace `nc` with ruby's socket
 * Add config control_port, debug_port, no_daemonize config for window host
+
+# 0.3.1 (2022-09-16)
+
+* Fix missing :arch for driver.import(options)
