@@ -73,18 +73,23 @@ Same as [vagrant-libvirt version-1](https://github.com/vagrant-libvirt/vagrant-l
 
 This provider exposes a few provider-specific configuration options:
 
-* `ssh_port` - The SSH port number used to access VM (IP is 127.0.0.1),
+* basic
+  * `ssh_port` - The SSH port number used to access VM (IP is 127.0.0.1),
   default: `50022`
-* `arch` - The architecture of VM, default: `aarch64`
-* `machine` - The machine type of VM, default: `virt,accel=hvf,highmem=off`
-* `cpu` - The cpu model of VM, default: `cortex-a72`
-* `smp` - The smp setting (Simulate an SMP system with n CPUs) of VM, default: `2`
-* `memory` - The memory setting of VM, default: `4G`
-* `net_device` - The network device, default: `virtio-net-device`
-* `image_path` - The path to qcow2 image for box-less VM, default is nil value
-* `qemu_dir` - The path to QEMU's install dir, default: `/opt/homebrew/share/qemu`
-* `extra_qemu_args` - The raw list of additional arguments to pass to QEMU. Use with extreme caution. (see "Force Multicore" below as example)
-* `extra_netdev_args` - extra, comma-separated arguments to pass to the -netdev parameter. Use with caution. (see "Force Local IP" below as example)
+  * `arch` - The architecture of VM, default: `aarch64`
+  * `machine` - The machine type of VM, default: `virt,accel=hvf,highmem=off`
+  * `cpu` - The cpu model of VM, default: `cortex-a72`
+  * `smp` - The smp setting (Simulate an SMP system with n CPUs) of VM, default: `2`
+  * `memory` - The memory setting of VM, default: `4G`
+* debug/expert
+  * `net_device` - The network device, default: `virtio-net-device`
+  * `image_path` - The path to qcow2 image for box-less VM, default is nil value
+  * `qemu_dir` - The path to QEMU's install dir, default: `/opt/homebrew/share/qemu`
+  * `extra_qemu_args` - The raw list of additional arguments to pass to QEMU. Use with extreme caution. (see "Force Multicore" below as example)
+  * `extra_netdev_args` - extra, comma-separated arguments to pass to the -netdev parameter. Use with caution. (see "Force Local IP" below as example)
+  * `control_port` - The port number used to control vm from vagrant, default is nil value. (nil means use unix socket)
+  * `debug_port` - The port number used to export serial port of the vm for debug, default is nil value. (nil means use unix socket, see "Debug" below for details)
+  * `no_daemonize` - Disable the "daemonize" mode of QEMU, default is false. (see "Windows host" below as example)
 
 These can be set like typical provider-specific configuration:
 
@@ -191,16 +196,41 @@ Vagrant.configure("2") do |config|
 end
 ```
 
+8. Windows host
+
+Windows version QEMU doesn't support `daemonize` mode and unix socket
+(Notes: not tested)
+
+```
+Vagrant.configure("2") do |config|
+  # ... other stuff
+
+  config.vm.provider "qemu" do |qe|
+    qe.no_daemonize = true
+    qe.control_port = 33333
+    qe.debug_port = 33334
+  end
+end
+```
+
 ## Debug
 
-Serial port is exported to unix socket: `<user_home>/.vagrant.d/tmp/vagrant-qemu/<id>/qemu_socket_serial`.
+Serial port is exported to unix socket: `<user_home>/.vagrant.d/tmp/vagrant-qemu/<id>/qemu_socket_serial`, or `debug_port`.
+
 To debug and login to the GuestOS from serial port:
 
-1. Get the id: `.vagrant/machines/default/qemu/id` in same directory with `Vagrantfile`
-2. Get the path to `qemu_socket_serial`
-3. Use `nc` to connect: `nc -U /Users/.../qemu_socket_serial`
+* unix socket
+  1. Get the id: `.vagrant/machines/default/qemu/id` in same directory with `Vagrantfile`
+  2. Get the path to `qemu_socket_serial`
+  3. Use `nc` to connect: `nc -U /Users/.../qemu_socket_serial`
+* `debug_port` (for example: 33334)
+  * Use `nc` to connect: `nc localhost 33334`
 
-To send ctrl+c to GuestOS from `nc`, try `echo 03 | xxd -r -p | nc -U /Users/.../qemu_socket_serial`
+To send ctrl+c to GuestOS from `nc`, try:
+* unix socket
+  * `echo 03 | xxd -r -p | nc -U /Users/.../qemu_socket_serial`
+* `debug_port` (for example: 33334)
+  * `echo 03 | xxd -r -p | nc localhost 33334`
 
 ## Build
 
