@@ -39,6 +39,7 @@ module VagrantPlugins
           options = {
             :image_path => image_path,
             :qemu_dir => qemu_dir,
+            :arch => env[:machine].provider_config.arch,
           }
 
           env[:ui].detail("Creating and registering the VM...")
