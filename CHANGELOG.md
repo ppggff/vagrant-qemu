@@ -36,3 +36,9 @@
 * Add config extra_qemu_args'.
 * Refine error message, such as 'Invalid qemu dir'.
 * Add a 'Force Multicore' to Readme.
+
+# 0.3.0 (2022-09-16)
+
+* Add config extra_netdev_args.
+* Replace `nc` with ruby's socket
+* Add config control_port, debug_port, no_daemonize config for window host
