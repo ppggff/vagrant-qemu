@@ -46,3 +46,7 @@
 # 0.3.1 (2022-09-16)
 
 * Fix missing :arch for driver.import(options)
+
+# 0.3.2 (2022-09-20)
+
+* Use kill 0 to check whether a process is running
