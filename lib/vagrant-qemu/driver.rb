@@ -167,7 +167,7 @@ module VagrantPlugins
         return false if !pid_file.file?
 
         begin
-          Process.getpgid(File.read(pid_file).to_i)
+          Process.kill(0, File.read(pid_file).to_i)
           true
         rescue Errno::ESRCH
           false
