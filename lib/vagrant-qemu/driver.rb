@@ -111,7 +111,8 @@ module VagrantPlugins
           # user-defined
           cmd += options[:extra_qemu_args]
 
-          execute(*cmd, {:detach => options[:no_daemonize]})
+          opts = {:detach => options[:no_daemonize]}
+          execute(*cmd, **opts)
         end
       end
 
