@@ -50,3 +50,8 @@
 # 0.3.2 (2022-09-20)
 
 * Use kill 0 to check whether a process is running
+
+# 0.3.3 (2022-10-11)
+
+* Fix a compatibility issue about ruby 3.x
+
