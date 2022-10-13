@@ -13,6 +13,7 @@ Tested:
 * QEMU >= 7.0.0
 * CentOS (centos-7-aarch64-2009-4K)
 * Ubuntu (see [Wiki](https://github.com/ppggff/vagrant-qemu/wiki) for detais)
+* Debian buster64 on x86_64 (see [Wiki](https://github.com/ppggff/vagrant-qemu/wiki) for detais)
 
 Others:
 
