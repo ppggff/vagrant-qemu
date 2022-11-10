@@ -148,7 +148,9 @@ module VagrantPlugins
         # Prepare firmware
         if options[:arch] == "aarch64"
           execute("cp", options[:qemu_dir].join("edk2-aarch64-code.fd").to_s, id_dir.join("edk2-aarch64-code.fd").to_s)
+          execute("chmod", "644", id_dir.join("edk2-aarch64-code.fd").to_s)
           execute("cp", options[:qemu_dir].join("edk2-arm-vars.fd").to_s, id_dir.join("edk2-arm-vars.fd").to_s)
+          execute("chmod", "644", id_dir.join("edk2-arm-vars.fd").to_s)
         end
 
         # Create image
