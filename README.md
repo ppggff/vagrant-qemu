@@ -84,6 +84,7 @@ This provider exposes a few provider-specific configuration options:
   * `memory` - The memory setting of VM, default: `4G`
 * debug/expert
   * `net_device` - The network device, default: `virtio-net-device`
+  * `drive_interface` - The interface type for the main drive, default `virtio`
   * `image_path` - The path to qcow2 image for box-less VM, default is nil value
   * `qemu_dir` - The path to QEMU's install dir, default: `/opt/homebrew/share/qemu`
   * `extra_qemu_args` - The raw list of additional arguments to pass to QEMU. Use with extreme caution. (see "Force Multicore" below as example)

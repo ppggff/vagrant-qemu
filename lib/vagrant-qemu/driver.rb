@@ -89,7 +89,7 @@ module VagrantPlugins
           cmd += %W(-netdev user,id=net0,#{hostfwd}#{extra_netdev})
 
           # drive
-          cmd += %W(-drive if=virtio,format=qcow2,file=#{image_path})
+          cmd += %W(-drive if=#{options[:drive_interface]},format=qcow2,file=#{image_path})
           if options[:arch] == "aarch64"
             fm1_path = id_dir.join("edk2-aarch64-code.fd").to_s
             fm2_path = id_dir.join("edk2-arm-vars.fd").to_s

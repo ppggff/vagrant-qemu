@@ -19,6 +19,7 @@ module VagrantPlugins
             :smp => env[:machine].provider_config.smp,
             :memory => env[:machine].provider_config.memory,
             :net_device => env[:machine].provider_config.net_device,
+            :drive_interface => env[:machine].provider_config.drive_interface,
             :extra_qemu_args => env[:machine].provider_config.extra_qemu_args,
             :extra_netdev_args => env[:machine].provider_config.extra_netdev_args,
             :ports => forwarded_ports(env),
