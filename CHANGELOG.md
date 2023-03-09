@@ -55,3 +55,6 @@
 
 * Fix a compatibility issue about ruby 3.x
 
+# 0.3.4 (2023-03-09)
+
+* Add config 'drive_interface'.
