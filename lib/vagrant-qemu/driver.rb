@@ -72,7 +72,9 @@ module VagrantPlugins
 
           # basic
           cmd += %W(-machine #{options[:machine]})
-          cmd += %W(-cpu #{options[:cpu]})
+          if !options[:cpu].nil?
+            cmd += %W(-cpu #{options[:cpu]})
+          end
           cmd += %W(-smp #{options[:smp]})
           cmd += %W(-m #{options[:memory]})
           cmd += %W(-device #{options[:net_device]},netdev=net0)
