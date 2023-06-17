@@ -93,8 +93,8 @@ module VagrantPlugins
           if options[:arch] == "aarch64"
             fm1_path = id_dir.join("edk2-aarch64-code.fd").to_s
             fm2_path = id_dir.join("edk2-arm-vars.fd").to_s
-            cmd += %W(-drive if=pflash,format=raw,file=#{fm1_path},readonly=on)
-            cmd += %W(-drive if=pflash,format=raw,file=#{fm2_path})
+            cmd += %W(-drive if=pflash,format=#{options[:firmware_format]},file=#{fm1_path},readonly=on)
+            cmd += %W(-drive if=pflash,format=#{options[:firmware_format]},file=#{fm2_path})
           end
 
           # control
