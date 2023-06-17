@@ -18,6 +18,7 @@ module VagrantPlugins
       attr_accessor :control_port
       attr_accessor :debug_port
       attr_accessor :no_daemonize
+      attr_accessor :firmware_format
 
       def initialize
         @ssh_port = UNSET_VALUE
@@ -35,6 +36,7 @@ module VagrantPlugins
         @control_port = UNSET_VALUE
         @debug_port = UNSET_VALUE
         @no_daemonize = UNSET_VALUE
+        @firmware_format = UNSET_VALUE
       end
 
       #-------------------------------------------------------------------
@@ -62,6 +64,7 @@ module VagrantPlugins
         @control_port = nil if @control_port == UNSET_VALUE
         @debug_port = nil if @debug_port == UNSET_VALUE
         @no_daemonize = false if @no_daemonize == UNSET_VALUE
+        @firmware_format = "raw" if @firmware_format == UNSET_VALUE
       end
 
       def validate(machine)

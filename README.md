@@ -92,6 +92,7 @@ This provider exposes a few provider-specific configuration options:
   * `control_port` - The port number used to control vm from vagrant, default is nil value. (nil means use unix socket)
   * `debug_port` - The port number used to export serial port of the vm for debug, default is nil value. (nil means use unix socket, see "Debug" below for details)
   * `no_daemonize` - Disable the "daemonize" mode of QEMU, default is false. (see "Windows host" below as example)
+  * `firmware_format` - The format of aarch64 firmware images (`edk2-aarch64-code.fd` and `edk2-arm-vars.fd`) loaded from `qemu_dir`, default: `raw`
 
 These can be set like typical provider-specific configuration:
 
