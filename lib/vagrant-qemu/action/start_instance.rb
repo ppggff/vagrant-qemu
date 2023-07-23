@@ -45,11 +45,7 @@ module VagrantPlugins
             # Skip port if it is disabled
             next if options[:disabled]
 
-            host_ip = ""
-            host_ip = "#{options[:host_ip]}:" if options[:host_ip]
-            guest_ip = ""
-            guest_ip = "#{options[:guest_ip]}:" if options[:guest_ip]
-            result.push("#{options[:protocol]}:#{host_ip}:#{options[:host]}-#{guest_ip}:#{options[:guest]}")
+            result.push("#{options[:protocol]}:#{options[:host_ip]}:#{options[:host]}-#{options[:guest_ip]}:#{options[:guest]}")
           end
 
           result
