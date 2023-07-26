@@ -144,7 +144,7 @@ module VagrantPlugins
       end
 
       def import(options)
-        new_id = SecureRandom.urlsafe_base64(8)
+        new_id = "vq_" + SecureRandom.urlsafe_base64(8)
 
         # Make dir
         id_dir = @data_dir.join(new_id)
