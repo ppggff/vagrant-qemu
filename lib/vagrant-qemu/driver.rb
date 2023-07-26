@@ -71,28 +71,33 @@ module VagrantPlugins
           cmd += %W(qemu-system-#{options[:arch]})
 
           # basic
-          cmd += %W(-machine #{options[:machine]})
-          if !options[:cpu].nil?
-            cmd += %W(-cpu #{options[:cpu]})
-          end
-          cmd += %W(-smp #{options[:smp]})
-          cmd += %W(-m #{options[:memory]})
-          cmd += %W(-device #{options[:net_device]},netdev=net0)
+          cmd += %W(-machine #{options[:machine]}) if !options[:machine].nil?
+          cmd += %W(-cpu #{options[:cpu]}) if !options[:cpu].nil?
+          cmd += %W(-smp #{options[:smp]}) if !options[:smp].nil?
+          cmd += %W(-m #{options[:memory]}) if !options[:memory].nil?
 
-          # ports
-          hostfwd = "hostfwd=tcp::#{options[:ssh_port]}-:22"
-          options[:ports].each do |v|
-            hostfwd += ",hostfwd=#{v}"
+          # network
+          if !options[:net_device].nil?
+            # net device
+            cmd += %W(-device #{options[:net_device]},netdev=net0)
+
+            # ports
+            hostfwd = "hostfwd=tcp::#{options[:ssh_port]}-:22"
+            options[:ports].each do |v|
+              hostfwd += ",hostfwd=#{v}"
+            end
+            extra_netdev = ""
+            if !options[:extra_netdev_args].nil?
+              extra_netdev = ",#{options[:extra_netdev_args]}"
+            end
+            cmd += %W(-netdev user,id=net0,#{hostfwd}#{extra_netdev})
           end
-          extra_netdev = ""
-          if !options[:extra_netdev_args].nil?
-            extra_netdev = ",#{options[:extra_netdev_args]}"
-          end
-          cmd += %W(-netdev user,id=net0,#{hostfwd}#{extra_netdev})
 
           # drive
-          cmd += %W(-drive if=#{options[:drive_interface]},format=qcow2,file=#{image_path})
-          if options[:arch] == "aarch64"
+          if !options[:drive_interface].nil?
+            cmd += %W(-drive if=#{options[:drive_interface]},format=qcow2,file=#{image_path})
+          end
+          if options[:arch] == "aarch64" && !options[:firmware_format].nil?
             fm1_path = id_dir.join("edk2-aarch64-code.fd").to_s
             fm2_path = id_dir.join("edk2-arm-vars.fd").to_s
             cmd += %W(-drive if=pflash,format=#{options[:firmware_format]},file=#{fm1_path},readonly=on)
@@ -148,7 +153,7 @@ module VagrantPlugins
         FileUtils.mkdir_p(id_tmp_dir)
 
         # Prepare firmware
-        if options[:arch] == "aarch64"
+        if options[:arch] == "aarch64" && !options[:firmware_format].nil?
           execute("cp", options[:qemu_dir].join("edk2-aarch64-code.fd").to_s, id_dir.join("edk2-aarch64-code.fd").to_s)
           execute("cp", options[:qemu_dir].join("edk2-arm-vars.fd").to_s, id_dir.join("edk2-arm-vars.fd").to_s)
           execute("chmod", "644", id_dir.join("edk2-arm-vars.fd").to_s)
