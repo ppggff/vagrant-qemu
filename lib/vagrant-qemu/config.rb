@@ -20,6 +20,7 @@ module VagrantPlugins
       attr_accessor :debug_port
       attr_accessor :no_daemonize
       attr_accessor :firmware_format
+      attr_accessor :other_default
 
       def initialize
         @ssh_host = UNSET_VALUE
@@ -39,6 +40,7 @@ module VagrantPlugins
         @debug_port = UNSET_VALUE
         @no_daemonize = UNSET_VALUE
         @firmware_format = UNSET_VALUE
+        @other_default = UNSET_VALUE
       end
 
       #-------------------------------------------------------------------
@@ -68,6 +70,7 @@ module VagrantPlugins
         @debug_port = nil if @debug_port == UNSET_VALUE
         @no_daemonize = false if @no_daemonize == UNSET_VALUE
         @firmware_format = "raw" if @firmware_format == UNSET_VALUE
+        @other_default = %W(-parallel null -monitor none -display none -vga none) if @other_default == UNSET_VALUE
       end
 
       def validate(machine)

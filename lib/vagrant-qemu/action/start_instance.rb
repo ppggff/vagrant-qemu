@@ -27,7 +27,8 @@ module VagrantPlugins
             :control_port => env[:machine].provider_config.control_port,
             :debug_port => env[:machine].provider_config.debug_port,
             :no_daemonize => env[:machine].provider_config.no_daemonize,
-            :firmware_format => env[:machine].provider_config.firmware_format
+            :firmware_format => env[:machine].provider_config.firmware_format,
+            :other_default => env[:machine].provider_config.other_default
           }
 
           env[:ui].output(I18n.t("vagrant_qemu.starting"))

@@ -110,10 +110,12 @@ module VagrantPlugins
           cmd += %W(-chardev socket,id=ser0,#{debug_socket},server=on,wait=off)
           cmd += %W(-serial chardev:ser0)
           cmd += %W(-pidfile #{pid_file})
-          cmd += %W(-parallel null -monitor none -display none -vga none)
           if !options[:no_daemonize]
             cmd += %W(-daemonize)
           end
+
+          # other default
+          cmd += options[:other_default]
 
           # user-defined
           cmd += options[:extra_qemu_args]
