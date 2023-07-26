@@ -37,7 +37,7 @@ module VagrantPlugins
         return nil if state.id != :running
 
         return {
-          host: "127.0.0.1",
+          host: @machine.provider_config.ssh_host,
           port: @machine.provider_config.ssh_port
         }
       end

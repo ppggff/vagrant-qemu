@@ -12,6 +12,7 @@ module VagrantPlugins
 
         def call(env)
           options = {
+            :ssh_host => env[:machine].provider_config.ssh_host,
             :ssh_port => env[:machine].provider_config.ssh_port,
             :arch => env[:machine].provider_config.arch,
             :machine => env[:machine].provider_config.machine,

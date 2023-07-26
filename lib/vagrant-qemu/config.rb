@@ -3,6 +3,7 @@ require "vagrant"
 module VagrantPlugins
   module QEMU
     class Config < Vagrant.plugin("2", :config)
+      attr_accessor :ssh_host
       attr_accessor :ssh_port
       attr_accessor :arch
       attr_accessor :machine
@@ -21,6 +22,7 @@ module VagrantPlugins
       attr_accessor :firmware_format
 
       def initialize
+        @ssh_host = UNSET_VALUE
         @ssh_port = UNSET_VALUE
         @arch = UNSET_VALUE
         @machine = UNSET_VALUE
@@ -49,6 +51,7 @@ module VagrantPlugins
       end
 
       def finalize!
+        @ssh_host = "127.0.0.1" if @ssh_host == UNSET_VALUE
         @ssh_port = 50022 if @ssh_port == UNSET_VALUE
         @arch = "aarch64" if @arch == UNSET_VALUE
         @machine = "virt,accel=hvf,highmem=on" if @machine == UNSET_VALUE
