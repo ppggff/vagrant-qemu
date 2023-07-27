@@ -72,17 +72,19 @@ Same as [vagrant-libvirt version-1](https://github.com/vagrant-libvirt/vagrant-l
 
 ## Configuration
 
+### Options
+
 This provider exposes a few provider-specific configuration options:
 
 * basic
-  * `ssh_port` - The SSH port number used to access VM (IP is 127.0.0.1),
-  default: `50022`
+  * `ssh_port` - The SSH port number used to access VM, default: `50022`
   * `arch` - The architecture of VM, default: `aarch64`
   * `machine` - The machine type of VM, default: `virt,accel=hvf,highmem=off`
   * `cpu` - The cpu model of VM, default: `cortex-a72`
   * `smp` - The smp setting (Simulate an SMP system with n CPUs) of VM, default: `2`
   * `memory` - The memory setting of VM, default: `4G`
 * debug/expert
+  * `ssh_host` - The SSH IP used to access VM, default: `127.0.0.1`
   * `net_device` - The network device, default: `virtio-net-device`
   * `drive_interface` - The interface type for the main drive, default `virtio`
   * `image_path` - The path to qcow2 image for box-less VM, default is nil value
@@ -93,6 +95,9 @@ This provider exposes a few provider-specific configuration options:
   * `debug_port` - The port number used to export serial port of the vm for debug, default is nil value. (nil means use unix socket, see "Debug" below for details)
   * `no_daemonize` - Disable the "daemonize" mode of QEMU, default is false. (see "Windows host" below as example)
   * `firmware_format` - The format of aarch64 firmware images (`edk2-aarch64-code.fd` and `edk2-arm-vars.fd`) loaded from `qemu_dir`, default: `raw`
+  * `other_default` - The other default arguments used by this plugin, default: `%W(-parallel null -monitor none -display none -vga none)`
+
+### Usage
 
 These can be set like typical provider-specific configuration:
 
@@ -106,6 +111,24 @@ Vagrant.configure(2) do |config|
   end
 end
 ```
+
+### With `nil` value
+
+To be able to custom the result qemu command deeply, you can set some config options
+to `nil` value to skip related qemu arguments.
+
+* `machine`: skip `-machine xxx`
+* `cpu`: skip `-cpu xxx`
+* `smp`: skip `-smp xxx`
+* `memory`: skip `-m xxx`
+* `net_device`: skip all network related arguments:
+  * `-device xxx,netdev=net0`
+  * `-netdev user,id=net0,xxx`
+  * NOTES: there will be no network, ssh won't work
+* `drive_interface`: skip drive for the main image, `-drive if=xxx,xxx`
+* `firmware_format`: skip firmware setup for aarch64, `-drive if=pflash,xxx`
+
+With `other_default = []`, all default arguments will be skipped.
 
 ## Example
 
