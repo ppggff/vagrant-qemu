@@ -58,3 +58,11 @@
 # 0.3.4 (2023-03-09)
 
 * Add config 'drive_interface'.
+
+# 0.3.5 (2023-07-27)
+
+* Fix forwarded ports bug. #39
+* Add config 'firmware_format', 'ssh_host', 'other_default'.
+* Allow no cpu for riscv64.
+* Allow more config options to be nil.
+* Let id start with "vq_".
