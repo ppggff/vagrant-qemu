@@ -67,7 +67,7 @@
 * Allow more config options to be nil.
 * Let id start with "vq_".
 
-# 0.3.5 (2024-02-02)
+# 0.3.6 (2024-02-02)
 
 * Implemented quick work-around for issue #52.
 
