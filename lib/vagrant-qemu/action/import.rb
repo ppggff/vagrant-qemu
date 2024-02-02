@@ -16,7 +16,13 @@ module VagrantPlugins
           if env[:machine].provider_config.image_path
             image_path = Pathname.new(env[:machine].provider_config.image_path)
           elsif env[:machine].box
-            image_path = env[:machine].box.directory.join("box.img")
+            image_filename = "box.img"
+            image_path = env[:machine].box.directory.join(image_filename)
+            # Hack for issue 52, because Packer 1.1.0 changed the base image name.
+            if !image_path.file?
+              image_filename = "box_0.img"
+              image_path = env[:machine].box.directory.join(image_filename)
+            end
           end
 
           if !image_path || !image_path.file?
