@@ -332,6 +332,14 @@ config.vm.provider "qemu" do |qe|
 end
 ```
 
+### 5. VMs have no shared networking.
+
+Because this Vagrant plugin operates in user-mode, it is not possible to create a shared NAT network. Thus, a Vagrantfile which defines multiple VMs will result in multiple isolated VMs. Refer to issues [#40](https://github.com/ppggff/vagrant-qemu/issues/40), [#36](https://github.com/ppggff/vagrant-qemu/issues/36) and [#33](https://github.com/ppggff/vagrant-qemu/issues/33).
+
+### 6. Box creation fails with "Invalid box image path: ... libvirt/box.img"
+
+This is a known issue, refer to [issue #52](https://github.com/ppggff/vagrant-qemu/issues/52). A work-around is in progress, as is a real solution.  
+
 ## TODO
 
 * Support NFS shared folder
