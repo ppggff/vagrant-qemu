@@ -1,4 +1,5 @@
 require "log4r"
+require "open3"
 require "pathname"
 
 module VagrantPlugins
@@ -12,18 +13,52 @@ module VagrantPlugins
         end
 
         def call(env)
-          image_path = nil
+          image_path = Array.new
           if env[:machine].provider_config.image_path
-            image_path = Pathname.new(env[:machine].provider_config.image_path)
-          elsif env[:machine].box
-            image_path = env[:machine].box.directory.join("box.img")
+            paths = env[:machine].provider_config.image_path
+            paths = [paths] if !paths.kind_of?(Array)
+            paths.each do |p|
+              image_path.append(Pathname.new(p))
+            end
+          else
+            disks = env[:machine].box.metadata.fetch('disks', [])
+            if disks.empty?
+              # box v1 format
+              image_path.append(env[:machine].box.directory.join("box.img"))
+            else
+              # box v2 format
+              disks.each_with_index do |d, i|
+                if d['path'].nil?
+                  @logger.error("Missing box image path for disk #{i}")
+                  raise Errors::BoxInvalid, name: env[:machine].name, err: "Missing box image path for disk #{i}"
+                end
+                image_path.append(env[:machine].box.directory.join(d['path']))
+              end
+            end
           end
 
-          if !image_path || !image_path.file?
-            @logger.error("Invalid box image path: #{image_path}")
-            raise Errors::BoxInvalid, name: env[:machine].name, err: "Invalid box image path: #{image_path}"
-          else
-            @logger.info("Found box image path: #{image_path}")
+          if image_path.empty?
+            @logger.error("Empty box image path")
+            raise Errors::BoxInvalid, name: env[:machine].name, err: "Empty box image path"
+          end
+          image_path.each do |img|
+            if !img.file?
+              @logger.error("Invalid box image path: #{img}")
+              raise Errors::BoxInvalid, name: env[:machine].name, err: "Invalid box image path: #{img}"
+            end
+            img_str = img.to_s
+            stdout, stderr, status = Open3.capture3('qemu-img', 'info', '--output=json', img_str)
+            if !status.success?
+              @logger.error("Run qemu-img info failed, #{img_str}, out: #{stdout}, err: #{stderr}")
+              raise Errors::BoxInvalid, name: env[:machine].name, err: "Run qemu-img info failed, #{img_str}, out: #{stdout}, err: #{stderr}"
+            end
+            img_info = JSON.parse(stdout)
+            format = img_info['format']
+            if format != 'qcow2'
+              @logger.error("Invalid box image format, #{img_str}, format: #{format}")
+              raise Errors::BoxInvalid, name: env[:machine].name, err: "Invalid box image format, #{img_str}, format: #{format}"
+            end
+            @logger.info("Found box image path: #{img_info}")
           end
 
           qemu_dir = Pathname.new(env[:machine].provider_config.qemu_dir)

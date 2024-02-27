@@ -66,3 +66,8 @@
 * Allow no cpu for riscv64.
 * Allow more config options to be nil.
 * Let id start with "vq_".
+
+# 0.3.6 (2024-02-27)
+
+* Config 'image_path' support array type
+* Try to support libvirt box v2 format

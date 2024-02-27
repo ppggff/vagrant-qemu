@@ -30,6 +30,7 @@ Others:
 
 * Import from a Libvirt vagrant box or qcow2 image
   * To use box for **Paralles or VMware Fusion**, see [Wiki](https://github.com/ppggff/vagrant-qemu/wiki) for details
+  * Libvirt box v2 format support is experimental
 * Start VM without GUI
 * SSH into VM
 * Provision the instances with any built-in Vagrant provisioner
@@ -87,7 +88,7 @@ This provider exposes a few provider-specific configuration options:
   * `ssh_host` - The SSH IP used to access VM, default: `127.0.0.1`
   * `net_device` - The network device, default: `virtio-net-device`
   * `drive_interface` - The interface type for the main drive, default `virtio`
-  * `image_path` - The path to qcow2 image for box-less VM, default is nil value
+  * `image_path` - The path (or array of paths) to qcow2 image for box-less VM, default is nil value
   * `qemu_dir` - The path to QEMU's install dir, default: `/opt/homebrew/share/qemu`
   * `extra_qemu_args` - The raw list of additional arguments to pass to QEMU. Use with extreme caution. (see "Force Multicore" below as example)
   * `extra_netdev_args` - extra, comma-separated arguments to pass to the -netdev parameter. Use with caution. (see "Force Local IP" below as example)

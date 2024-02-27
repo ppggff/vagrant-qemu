@@ -45,8 +45,14 @@ module VagrantPlugins
       def start(options)
         if !running?
           id_dir = @data_dir.join(@vm_id)
-          image_path = id_dir.join("linked-box.img").to_s
           pid_file = id_dir.join("qemu.pid").to_s
+
+          image_path = Array.new
+          image_count = id_dir.glob("linked-box*.img").count
+          for i in 0..image_count-1 do
+            suffix_index = i > 0 ? "-#{i}" : ''
+            image_path.append(id_dir.join("linked-box#{suffix_index}.img").to_s)
+          end
 
           id_tmp_dir = @tmp_dir.join(@vm_id)
           FileUtils.mkdir_p(id_tmp_dir)
@@ -95,7 +101,9 @@ module VagrantPlugins
 
           # drive
           if !options[:drive_interface].nil?
-            cmd += %W(-drive if=#{options[:drive_interface]},format=qcow2,file=#{image_path})
+            image_path.each do |img|
+              cmd += %W(-drive if=#{options[:drive_interface]},format=qcow2,file=#{img})
+            end
           end
           if options[:arch] == "aarch64" && !options[:firmware_format].nil?
             fm1_path = id_dir.join("edk2-aarch64-code.fd").to_s
@@ -162,7 +170,10 @@ module VagrantPlugins
         end
 
         # Create image
-        execute("qemu-img", "create", "-f", "qcow2", "-F", "qcow2", "-b", options[:image_path].to_s, id_dir.join("linked-box.img").to_s)
+        options[:image_path].each_with_index do |img, i|
+          suffix_index = i > 0 ? "-#{i}" : ''
+          execute("qemu-img", "create", "-f", "qcow2", "-F", "qcow2", "-b", img.to_s, id_dir.join("linked-box#{suffix_index}.img").to_s)
+        end
 
         server = {
           :id => new_id,
