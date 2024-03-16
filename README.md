@@ -299,6 +299,21 @@ Vagrant.configure("2") do |config|
 end
 ```
 
+As an alternative solution(helpful for macOS) it is possible to use 9p file system via virtio. 
+
+```
+config.vm.synced_folder ".", "/vagrant", disabled: true
+config.vm.provider "qemu" do |qe|
+    qe.extra_qemu_args = %w(-virtfs local,path=.,mount_tag=shared,security_model=mapped)
+end
+```
+This will pass "current directory" to mount point tagged "shared"
+Use the following /etc/fstab entry on the vagrant vm to mount the shared directory into /home/vagrant/shared
+```
+shared /home/vagrant/shared 9p _netdev,trans=virtio,msize=524288 0
+```
+Please keep in mind that the guest OS will need to install 9p dependencies to handle the 9p filestystem.
+
 ### 2. netcat does not support the -U parameter
 
 I had netcat installed through home brew and it does not support the -U parameter.
