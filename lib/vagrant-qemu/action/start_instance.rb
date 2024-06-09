@@ -20,6 +20,7 @@ module VagrantPlugins
             :smp => env[:machine].provider_config.smp,
             :memory => env[:machine].provider_config.memory,
             :net_device => env[:machine].provider_config.net_device,
+            :mac_address => env[:machine].provider_config.mac_address,
             :socket_fd => env[:machine].provider_config.socket_fd,
             :drive_interface => env[:machine].provider_config.drive_interface,
             :extra_qemu_args => env[:machine].provider_config.extra_qemu_args,

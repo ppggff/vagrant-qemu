@@ -85,7 +85,8 @@ module VagrantPlugins
           # network
           if !options[:net_device].nil?
             # net device
-            cmd += %W(-device #{options[:net_device]},netdev=net0)
+            macaddr = options[:mac_address].nil? ? "" : ",mac=" + options[:mac_address]
+            cmd += %W(-device #{options[:net_device]},netdev=net0#{macaddr})
 
             # net type
             net_type = "user"

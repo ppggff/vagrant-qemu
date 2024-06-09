@@ -87,6 +87,7 @@ This provider exposes a few provider-specific configuration options:
 * debug/expert
   * `ssh_host` - The SSH IP used to access VM, default: `127.0.0.1`
   * `net_device` - The network device, default: `virtio-net-device`
+  * `mac_address` - The MAC address, default is nil value. (nil means automatically set)
   * `socket_fd` - The file descriptor for socket networking, default is nil value. (nil means no socket)
   * `drive_interface` - The interface type for the main drive, default `virtio`
   * `image_path` - The path (or array of paths) to qcow2 image for box-less VM, default is nil value
