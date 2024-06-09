@@ -87,16 +87,25 @@ module VagrantPlugins
             # net device
             cmd += %W(-device #{options[:net_device]},netdev=net0)
 
+            # net type
+            net_type = "user"
+            if !options[:socket_fd].nil?
+              net_type = "socket,fd=#{options[:socket_fd]}"
+            end
+
             # ports
-            hostfwd = "hostfwd=tcp::#{options[:ssh_port]}-:22"
-            options[:ports].each do |v|
-              hostfwd += ",hostfwd=#{v}"
+            hostfwd = ""
+            if options[:socket_fd].nil?
+              hostfwd = ",hostfwd=tcp::#{options[:ssh_port]}-:22"
+              options[:ports].each do |v|
+                hostfwd += ",hostfwd=#{v}"
+              end
             end
             extra_netdev = ""
             if !options[:extra_netdev_args].nil?
               extra_netdev = ",#{options[:extra_netdev_args]}"
             end
-            cmd += %W(-netdev user,id=net0,#{hostfwd}#{extra_netdev})
+            cmd += %W(-netdev #{net_type},id=net0#{hostfwd}#{extra_netdev})
           end
 
           # drive
