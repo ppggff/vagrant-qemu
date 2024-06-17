@@ -6,14 +6,12 @@ Gem::Specification.new do |s|
   s.version       = VagrantPlugins::QEMU::VERSION
   s.platform      = Gem::Platform::RUBY
   s.license       = "MIT"
-  s.authors       = "ppggff"
-  s.email         = "pgf00a@gmail.com"
-  s.homepage      = "https://github.com/ppggff/vagrant-qemu"
+  s.authors       = "Submitty"
+  s.homepage      = "https://github.com/Submitty/vagrant-qemu"
   s.summary       = "Enables Vagrant to manage machines with QEMU."
   s.description   = "Enables Vagrant to manage machines with QEMU."
 
   s.required_rubygems_version = ">= 1.3.6"
-  s.rubyforge_project         = "vagrant-qemu"
 
   # The following block of code determines the files that should be included
   # in the gem. It does this by reading all the files in the directory where
