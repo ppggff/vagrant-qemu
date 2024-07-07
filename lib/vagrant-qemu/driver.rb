@@ -137,9 +137,13 @@ module VagrantPlugins
         if running?
           if !options[:control_port].nil?
             Socket.tcp("localhost", options[:control_port], connect_timeout: 5) do |sock|
+              # Wait for initial prompt
+              sock.gets("(qemu) ")
+              # Send system_powerdown
               sock.print "system_powerdown\n"
               sock.close_write
-              sock.read
+              # Wait for next prompt
+              sock.gets("(qemu) ")
             end
           else
             id_tmp_dir = @tmp_dir.join(@vm_id)
