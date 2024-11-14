@@ -14,3 +14,5 @@ end
 group :plugins do
   gem "vagrant-qemu" , path: "."
 end
+
+gem "sys-proctable"

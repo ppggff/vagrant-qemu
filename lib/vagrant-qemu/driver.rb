@@ -88,6 +88,7 @@ module VagrantPlugins
             cmd += %W(-device #{options[:net_device]},netdev=net0)
 
             # ports
+            puts("options",options)
             hostfwd = "hostfwd=tcp::#{options[:ssh_port]}-:22"
             options[:ports].each do |v|
               hostfwd += ",hostfwd=#{v}"
@@ -151,6 +152,36 @@ module VagrantPlugins
             end
          end
         end
+      end
+
+      def get_ssh_port(options)
+        source_port = options[:ssh_port]
+        if running?
+          begin
+            if !options[:control_port].nil?
+              Socket.tcp("localhost", options[:control_port], connect_timeout: 5) do |sock|
+                sock.print "info usernet\n"
+                sock.close_write
+                sock.read
+              end
+            else
+              id_tmp_dir = @tmp_dir.join(@vm_id)
+              unix_socket_path = id_tmp_dir.join("qemu_socket").to_s
+              Socket.unix(unix_socket_path) do |sock|
+                sock.print "info usernet\n"
+                sock.close_write
+                sock.read
+              end
+            end.each_line do |line|
+              if line =~ /^\s*TCP\[HOST_FORWARD\]\s+\d+\s+\*\s+(\d+)\s+\d+\.\d+\.\d+\.\d+\s+22\s+/
+                source_port = $1
+              end
+            end
+          rescue
+            nil
+          end
+        end
+        source_port
       end
 
       def import(options)

@@ -1,4 +1,6 @@
 require "log4r"
+require 'sys/proctable'
+include Sys
 
 module VagrantPlugins
   module QEMU
@@ -22,6 +24,13 @@ module VagrantPlugins
             end
           else
             env[:machine_state_id] = :not_created
+          end
+          if env[:machine].provider_config.ssh_port != nil
+            options = {
+              :control_port => env[:machine].provider_config.control_port,
+              :ssh_port => env[:machine].provider_config.ssh_port
+            }
+            env[:machine].provider_config.ssh_port=env[:machine].provider.driver.get_ssh_port(options)
           end
           @app.call(env)
         end

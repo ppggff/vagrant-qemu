@@ -116,7 +116,7 @@ module VagrantPlugins
             end
 
             b1.use Provision
-            b1.use EnvSet, port_collision_repair: false
+            b1.use EnvSet, port_collision_repair: true
             b1.use PrepareForwardedPortCollisionParams
             b1.use HandleForwardedPortCollisions
             b1.use SyncedFolderCleanup
@@ -173,6 +173,7 @@ module VagrantPlugins
       autoload :TimedProvision, action_root.join("timed_provision") # some plugins now expect this action to exist
       autoload :WarnNetworks, action_root.join("warn_networks")
       autoload :PrepareForwardedPortCollisionParams, action_root.join("prepare_forwarded_port_collision_params")
+      autoload :HandleForwardedPortCollisions, action_root.join("handle_forwarded_port_collisions")
     end
   end
 end
