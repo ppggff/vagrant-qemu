@@ -11,6 +11,7 @@ module VagrantPlugins
         end
 
         def call(env)
+          fwPorts = forwarded_ports(env)
           options = {
             :ssh_host => env[:machine].provider_config.ssh_host,
             :ssh_port => env[:machine].provider_config.ssh_port,
@@ -23,7 +24,7 @@ module VagrantPlugins
             :drive_interface => env[:machine].provider_config.drive_interface,
             :extra_qemu_args => env[:machine].provider_config.extra_qemu_args,
             :extra_netdev_args => env[:machine].provider_config.extra_netdev_args,
-            :ports => forwarded_ports(env),
+            :ports => fwPorts,
             :control_port => env[:machine].provider_config.control_port,
             :debug_port => env[:machine].provider_config.debug_port,
             :no_daemonize => env[:machine].provider_config.no_daemonize,
@@ -43,7 +44,12 @@ module VagrantPlugins
             next if type != :forwarded_port
 
             # Don't include SSH
-            next if options[:id] == "ssh"
+            if options[:id] == "ssh"
+              if options[:host] != env[:machine].provider_config.ssh_port
+                  env[:machine].provider_config.ssh_port = options[:host]
+              end
+              next
+            end
 
             # Skip port if it is disabled
             next if options[:disabled]
