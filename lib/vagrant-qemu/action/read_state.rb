@@ -1,6 +1,4 @@
 require "log4r"
-require 'sys/proctable'
-include Sys
 
 module VagrantPlugins
   module QEMU

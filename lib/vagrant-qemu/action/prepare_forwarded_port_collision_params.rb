@@ -1,5 +1,5 @@
-require 'sys/proctable'
-include Sys
+
+require 'open3'
 
 module VagrantPlugins
   module QEMU
@@ -13,20 +13,22 @@ module VagrantPlugins
       def call(env)
       machine = env[:machine]
 
-      # TODO: not supported
-      #other_used_ports = {}
-
-      puts "Checking Port Collision"
       other_used_ports = Hash.new{|hash, key| hash[key] = Set.new}
-      ProcTable.ps(thread_info: false).each do |process|
-       if process.comm.include?('qemu-system')
-         if process.cmdline =~ /hostfwd=tcp::(\d+)-:22/
-           port = $1
-           #puts "Inuse Port: #{port}"
-           other_used_ports[port].add?('*')
-         end
+
+      ps_output, _status = Open3.capture2("ps -eo pid,comm,user,command")
+      ps_output.each_line do |line|
+        next if line =~ /^\s*PID/
+
+        columns = line.split
+        pid, comm, user = columns[0], columns[1], columns[2]
+        cmdline = columns[3..-1].join(" ")
+
+        if comm.include?('qemu-system') && cmdline =~ /hostfwd=tcp::(\d+)-:22/
+          port = $1
+          other_used_ports[port].add?('*')
+        end
       end
-      end
+
       #puts other_used_ports
       env[:port_collision_extra_in_use] = other_used_ports
 

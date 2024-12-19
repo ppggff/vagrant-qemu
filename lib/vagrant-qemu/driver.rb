@@ -88,7 +88,6 @@ module VagrantPlugins
             cmd += %W(-device #{options[:net_device]},netdev=net0)
 
             # ports
-            puts("options",options)
             hostfwd = "hostfwd=tcp::#{options[:ssh_port]}-:22"
             options[:ports].each do |v|
               hostfwd += ",hostfwd=#{v}"
