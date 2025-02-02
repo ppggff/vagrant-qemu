@@ -1,5 +1,6 @@
 require 'childprocess'
 require 'securerandom'
+require 'yaml'
 
 require "vagrant/util/busy"
 require 'vagrant/util/io'
@@ -10,7 +11,7 @@ require_relative "plugin"
 
 module VagrantPlugins
   module QEMU
-	  class Driver
+    class Driver
       # @return [String] VM ID
       attr_reader :vm_id
       attr_reader :data_dir
@@ -55,6 +56,10 @@ module VagrantPlugins
 
           id_tmp_dir = @tmp_dir.join(@vm_id)
           FileUtils.mkdir_p(id_tmp_dir)
+
+          # dump options
+          options_file = id_tmp_dir.join("options.yml")
+          File.write(options_file, options.to_yaml)
 
           control_socket = ""
           if !options[:control_port].nil?
@@ -151,6 +156,18 @@ module VagrantPlugins
             end
           end
         end
+      end
+
+      def get_ssh_port(ssh_port)
+        id_tmp_dir = @tmp_dir.join(@vm_id)
+        options_file = id_tmp_dir.join("options.yml")
+
+        if options_file.file?
+          options = YAML.load_file(options_file) rescue nil
+          ssh_port = options[:ssh_port] if !options.nil? && options.key?(:ssh_port)
+        end
+
+        ssh_port
       end
 
       def import(options)

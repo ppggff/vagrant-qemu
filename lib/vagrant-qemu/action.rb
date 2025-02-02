@@ -116,7 +116,7 @@ module VagrantPlugins
             end
 
             b1.use Provision
-            b1.use EnvSet, port_collision_repair: false
+            b1.use EnvSet, port_collision_repair: true
             b1.use PrepareForwardedPortCollisionParams
             b1.use HandleForwardedPortCollisions
             b1.use SyncedFolderCleanup
