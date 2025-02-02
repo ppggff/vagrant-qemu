@@ -86,6 +86,7 @@ This provider exposes a few provider-specific configuration options:
   * `memory` - The memory setting of VM, default: `4G`
 * debug/expert
   * `ssh_host` - The SSH IP used to access VM, default: `127.0.0.1`
+  * `ssh_auto_correct` - Auto correct port collisions for ssh port, default: `false`
   * `net_device` - The network device, default: `virtio-net-device`
   * `drive_interface` - The interface type for the main drive, default `virtio`
   * `image_path` - The path (or array of paths) to qcow2 image for box-less VM, default is nil value
@@ -226,7 +227,6 @@ end
 8. Windows host
 
 Windows version QEMU doesn't support `daemonize` mode and unix socket
-(Notes: not tested)
 
 ```
 Vagrant.configure("2") do |config|
@@ -237,6 +237,32 @@ Vagrant.configure("2") do |config|
     qe.control_port = 33333
     qe.debug_port = 33334
   end
+end
+```
+
+9. Auto port collisions for ssh port (multiple machine)
+
+```
+Vagrant.configure("2") do |config|
+
+  config.vm.define "vm1" do |c|
+    c.vm.box = "ppggff/centos-7-aarch64-2009-4K"
+    c.vm.provider "qemu" do |qe|
+      qe.memory = "2G"
+      qe.ssh_auto_correct = true
+    end
+    c.vm.synced_folder ".", "/vagrant", disabled: true
+  end
+
+  config.vm.define "vm2" do |c|
+    c.vm.box = "ppggff/centos-7-aarch64-2009-4K"
+    c.vm.provider "qemu" do |qe|
+      qe.memory = "2G"
+      qe.ssh_auto_correct = true
+    end
+    c.vm.synced_folder ".", "/vagrant", disabled: true
+  end
+
 end
 ```
 

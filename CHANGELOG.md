@@ -71,3 +71,9 @@
 
 * Config 'image_path' support array type
 * Try to support libvirt box v2 format
+
+# 0.3.7 (2025-02-02)
+
+* Ignore exception after sending 'system_powerdown' cmd, fix windows halt error
+* Move pid file to tmp dir
+* Be able to auto correct ssh port collisions, new config: ssh_auto_correct
