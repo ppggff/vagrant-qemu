@@ -45,7 +45,6 @@ module VagrantPlugins
       def start(options)
         if !running?
           id_dir = @data_dir.join(@vm_id)
-          pid_file = id_dir.join("qemu.pid").to_s
 
           image_path = Array.new
           image_count = id_dir.glob("linked-box*.img").count
@@ -113,6 +112,7 @@ module VagrantPlugins
           end
 
           # control
+          pid_file = id_tmp_dir.join("qemu.pid").to_s
           cmd += %W(-chardev socket,id=mon0,#{control_socket},server=on,wait=off)
           cmd += %W(-mon chardev=mon0,mode=readline)
           cmd += %W(-chardev socket,id=ser0,#{debug_socket},server=on,wait=off)
@@ -185,7 +185,7 @@ module VagrantPlugins
       end
 
       def running?
-        pid_file = @data_dir.join(@vm_id).join("qemu.pid")
+        pid_file = @tmp_dir.join(@vm_id).join("qemu.pid")
         return false if !pid_file.file?
 
         begin
