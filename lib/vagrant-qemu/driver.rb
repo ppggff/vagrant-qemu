@@ -139,7 +139,7 @@ module VagrantPlugins
             Socket.tcp("localhost", options[:control_port], connect_timeout: 5) do |sock|
               sock.print "system_powerdown\n"
               sock.close_write
-              sock.read
+              sock.read rescue nil
             end
           else
             id_tmp_dir = @tmp_dir.join(@vm_id)
@@ -147,9 +147,9 @@ module VagrantPlugins
             Socket.unix(unix_socket_path) do |sock|
               sock.print "system_powerdown\n"
               sock.close_write
-              sock.read
+              sock.read rescue nil
             end
-         end
+          end
         end
       end
 
