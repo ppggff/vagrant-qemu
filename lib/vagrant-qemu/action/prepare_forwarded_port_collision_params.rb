@@ -21,16 +21,23 @@ module VagrantPlugins
       machine.config.vm.networks.each do |type, options|
         next if type != :forwarded_port
 
-        # remap ssh.host to ssh_port
+        # update ssh.host to ssh_port
         if options[:id] == "ssh"
-          remap[options[:host]] = machine.provider_config.ssh_port
+          options[:host] = machine.provider_config.ssh_port
+          options[:auto_correct] = machine.provider_config.ssh_auto_correct
           has_ssh_forward = true
           break
         end
       end
 
       if !has_ssh_forward
-        machine.config.vm.networks.forward_port(22, machine.provider_config.ssh_port, [id: "ssh", auto_correct: machine.provider_config.ssh_auto_correct])
+        machine.config.vm.network :forwarded_port,
+          :guest => 22, 
+          :host => machine.provider_config.ssh_port, 
+          :host_ip => "127.0.0.1", 
+          :id => "ssh", 
+          :auto_correct => machine.provider_config.ssh_auto_correct,
+          :protocol => "tcp"
       end
 
       @app.call(env)
