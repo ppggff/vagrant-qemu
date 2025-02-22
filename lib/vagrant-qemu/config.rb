@@ -74,6 +74,9 @@ module VagrantPlugins
         @no_daemonize = false if @no_daemonize == UNSET_VALUE
         @firmware_format = "raw" if @firmware_format == UNSET_VALUE
         @other_default = %W(-parallel null -monitor none -display none -vga none) if @other_default == UNSET_VALUE
+
+        # TODO better error msg
+        @ssh_port = Integer(@ssh_port)
       end
 
       def validate(machine)

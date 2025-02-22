@@ -81,3 +81,7 @@
 # 0.3.8 (2025-02-21)
 
 * Fix regression that ssh_port is not working #68
+
+# 0.3.9 (2025-02-22)
+
+* Support ssh_port in string (need better error message)
