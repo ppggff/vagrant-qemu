@@ -75,6 +75,7 @@ module VagrantPlugins
             :image_path => image_path,
             :qemu_dir => qemu_dir,
             :arch => env[:machine].provider_config.arch,
+            :disk_resize => env[:machine].provider_config.disk_resize,
             :firmware_format => env[:machine].provider_config.firmware_format
           }
 

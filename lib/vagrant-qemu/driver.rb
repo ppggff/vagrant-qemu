@@ -1,3 +1,4 @@
+require 'log4r'
 require 'childprocess'
 require 'securerandom'
 require 'yaml'
@@ -21,6 +22,7 @@ module VagrantPlugins
         @vm_id = id
         @data_dir = dir
         @tmp_dir = tmp.join("vagrant-qemu")
+        @logger = Log4r::Logger.new("vagrant_qemu::driver")
       end
 
       def get_current_state
@@ -189,7 +191,16 @@ module VagrantPlugins
         # Create image
         options[:image_path].each_with_index do |img, i|
           suffix_index = i > 0 ? "-#{i}" : ''
-          execute("qemu-img", "create", "-f", "qcow2", "-F", "qcow2", "-b", img.to_s, id_dir.join("linked-box#{suffix_index}.img").to_s)
+          linked_image = id_dir.join("linked-box#{suffix_index}.img").to_s
+          execute("qemu-img", "create", "-f", "qcow2", "-F", "qcow2", "-b", img.to_s, linked_image)
+          @logger.info("Disk resize option: #{options[:disk_resize]}")
+          if options[:disk_resize]
+            if i > 0
+              @logger.error("Resizing more than one disk is not supported")
+              raise NotSupportedError
+            end
+            execute("qemu-img", "resize", linked_image, options[:disk_resize])
+          end
         end
 
         server = {
