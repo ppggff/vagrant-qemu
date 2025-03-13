@@ -77,6 +77,7 @@ module VagrantPlugins
             :arch => env[:machine].provider_config.arch,
             :firmware_format => env[:machine].provider_config.firmware_format,
             :extra_image_opts => env[:machine].provider_config.extra_image_opts,
+            :disk_resize => env[:machine].provider_config.disk_resize,
           }
 
           env[:ui].detail("Creating and registering the VM...")

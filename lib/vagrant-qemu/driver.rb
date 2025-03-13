@@ -1,3 +1,4 @@
+require 'log4r'
 require 'childprocess'
 require 'securerandom'
 require 'yaml'
@@ -23,6 +24,7 @@ module VagrantPlugins
         @data_dir = dir
         @tmp_dir = tmp.join("vagrant-qemu")
         @attached_drives = {disk: [], floppy: [], dvd: []}
+        @logger = Log4r::Logger.new("vagrant_qemu::driver")
       end
 
       def get_current_state
@@ -218,14 +220,23 @@ module VagrantPlugins
         # Create image
         options[:image_path].each_with_index do |img, i|
           suffix_index = i > 0 ? "-#{i}" : ''
+
+          linked_image = id_dir.join("linked-box#{suffix_index}.img").to_s
           args = ["create", "-f", "qcow2", "-F", "qcow2", "-b", img.to_s]
+
           if !options[:extra_image_opts].nil?
             options[:extra_image_opts].each do |opt|
               args.push("-o")
               args.push(opt)
             end
           end
-          args.push(id_dir.join("linked-box#{suffix_index}.img").to_s)
+
+          args.push(linked_image)
+
+          if !options[:disk_resize].nil?
+            args.push(options[:disk_resize])
+          end
+
           execute("qemu-img",  *args)
         end
 
