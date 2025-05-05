@@ -90,6 +90,7 @@ This provider exposes a few provider-specific configuration options:
   * `net_device` - The network device, default: `virtio-net-device`
   * `drive_interface` - The interface type for the main drive, default `virtio`
   * `image_path` - The path (or array of paths) to qcow2 image for box-less VM, default is nil value
+  * `qemu_bin` - Path to an alternative QEMU binary, default: autodetected
   * `qemu_dir` - The path to QEMU's install dir, default: `/opt/homebrew/share/qemu`
   * `extra_qemu_args` - The raw list of additional arguments to pass to QEMU. Use with extreme caution. (see "Force Multicore" below as example)
   * `extra_netdev_args` - extra, comma-separated arguments to pass to the -netdev parameter. Use with caution. (see "Force Local IP" below as example)
