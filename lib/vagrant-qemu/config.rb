@@ -14,6 +14,7 @@ module VagrantPlugins
       attr_accessor :net_device
       attr_accessor :drive_interface
       attr_accessor :image_path
+      attr_accessor :qemu_bin
       attr_accessor :qemu_dir
       attr_accessor :extra_qemu_args
       attr_accessor :extra_netdev_args
@@ -35,6 +36,7 @@ module VagrantPlugins
         @net_device = UNSET_VALUE
         @drive_interface = UNSET_VALUE
         @image_path = UNSET_VALUE
+        @qemu_bin = UNSET_VALUE
         @qemu_dir = UNSET_VALUE
         @extra_qemu_args = UNSET_VALUE
         @extra_netdev_args = UNSET_VALUE
@@ -66,6 +68,7 @@ module VagrantPlugins
         @net_device = "virtio-net-device" if @net_device == UNSET_VALUE
         @drive_interface = "virtio" if @drive_interface == UNSET_VALUE
         @image_path = nil if @image_path == UNSET_VALUE
+        @qemu_bin = nil if @qemu_bin == UNSET_VALUE
         @qemu_dir = "/opt/homebrew/share/qemu" if @qemu_dir == UNSET_VALUE
         @extra_qemu_args = [] if @extra_qemu_args == UNSET_VALUE
         @extra_netdev_args = nil if @extra_netdev_args == UNSET_VALUE

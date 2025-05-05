@@ -78,7 +78,15 @@ module VagrantPlugins
           end
 
           cmd = []
-          cmd += %W(qemu-system-#{options[:arch]})
+          if options[:qemu_bin].nil?
+            cmd += %W(qemu-system-#{options[:arch]})
+          else
+            if options[:qemu_bin].kind_of?(Array)
+              cmd += options[:qemu_bin]
+            else
+              cmd += %W(#{options[:qemu_bin]})
+            end
+          end
 
           # basic
           cmd += %W(-machine #{options[:machine]}) if !options[:machine].nil?
