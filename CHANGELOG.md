@@ -85,3 +85,7 @@
 # 0.3.9 (2025-02-22)
 
 * Support ssh_port in string (need better error message)
+
+# 0.3.10 (2025-05-06)
+
+* Add support for `qemu_bin` to customize QEMU binary
