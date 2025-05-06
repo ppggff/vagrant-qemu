@@ -267,6 +267,12 @@ Vagrant.configure("2") do |config|
 end
 ```
 
+10. Use socket_vmnet to communicate between machines
+
+Thanks example from @Leandros.
+
+See [pr#73](https://github.com/ppggff/vagrant-qemu/pull/73) for details.
+
 ## Debug
 
 Serial port is exported to unix socket: `<user_home>/.vagrant.d/tmp/vagrant-qemu/<id>/qemu_socket_serial`, or `debug_port`.
