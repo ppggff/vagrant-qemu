@@ -16,11 +16,13 @@ module VagrantPlugins
       attr_reader :vm_id
       attr_reader :data_dir
       attr_reader :tmp_dir
+      attr_reader :attached_drives
 
       def initialize(id, dir, tmp)
         @vm_id = id
         @data_dir = dir
         @tmp_dir = tmp.join("vagrant-qemu")
+        @attached_drives = {disk: [], floppy: [], dvd: []}
       end
 
       def get_current_state
@@ -129,6 +131,18 @@ module VagrantPlugins
             fm2_path = id_dir.join("edk2-arm-vars.fd").to_s
             cmd += %W(-drive if=pflash,format=#{options[:firmware_format]},file=#{fm1_path},readonly=on)
             cmd += %W(-drive if=pflash,format=#{options[:firmware_format]},file=#{fm2_path})
+          end
+
+          dvd_index = 1
+          @attached_drives[:dvd].each do |disk|
+            cmd += %W(-drive file=#{disk[:Path]},index=#{dvd_index},media=cdrom)
+            dvd_index += 1
+          end
+          if !options[:drive_interface].nil?
+            @attached_drives[:disk].each do |disk|
+              cmd += %W(-drive if=#{options[:drive_interface]},id=disk#{diskid},format=qcow2,file=#{disk[:Path]}#{extra_drive_args})
+              diskid += 1
+            end
           end
 
           # control
@@ -323,6 +337,18 @@ module VagrantPlugins
             return result.stdout
           end
         end
+      end
+
+      def attach_dvd(disk)
+        @attached_drives[:dvd] << disk
+      end
+
+      def attach_disk(disk)
+        @attached_drives[:disk] << disk
+      end
+
+      def disk_dir
+          @data_dir.join(@vm_id)
       end
     end
   end
