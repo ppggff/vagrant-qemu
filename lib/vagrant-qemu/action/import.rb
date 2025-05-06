@@ -75,7 +75,8 @@ module VagrantPlugins
             :image_path => image_path,
             :qemu_dir => qemu_dir,
             :arch => env[:machine].provider_config.arch,
-            :firmware_format => env[:machine].provider_config.firmware_format
+            :firmware_format => env[:machine].provider_config.firmware_format,
+            :extra_image_opts => env[:machine].provider_config.extra_image_opts,
           }
 
           env[:ui].detail("Creating and registering the VM...")

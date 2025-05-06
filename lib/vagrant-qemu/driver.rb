@@ -204,7 +204,15 @@ module VagrantPlugins
         # Create image
         options[:image_path].each_with_index do |img, i|
           suffix_index = i > 0 ? "-#{i}" : ''
-          execute("qemu-img", "create", "-f", "qcow2", "-F", "qcow2", "-b", img.to_s, id_dir.join("linked-box#{suffix_index}.img").to_s)
+          args = ["create", "-f", "qcow2", "-F", "qcow2", "-b", img.to_s]
+          if !options[:extra_image_opts].nil?
+            options[:extra_image_opts].each do |opt|
+              args.push("-o")
+              args.push(opt)
+            end
+          end
+          args.push(id_dir.join("linked-box#{suffix_index}.img").to_s)
+          execute("qemu-img",  *args)
         end
 
         server = {
