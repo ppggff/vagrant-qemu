@@ -94,6 +94,7 @@ This provider exposes a few provider-specific configuration options:
   * `qemu_dir` - The path to QEMU's install dir, default: `/opt/homebrew/share/qemu`
   * `extra_qemu_args` - The raw list of additional arguments to pass to QEMU. Use with extreme caution. (see "Force Multicore" below as example)
   * `extra_netdev_args` - extra, comma-separated arguments to pass to the -netdev parameter. Use with caution. (see "Force Local IP" below as example)
+  * `extra_drive_args` - Add optional extra arguments to each drive attached, default: `[]`
   * `control_port` - The port number used to control vm from vagrant, default is nil value. (nil means use unix socket)
   * `debug_port` - The port number used to export serial port of the vm for debug, default is nil value. (nil means use unix socket, see "Debug" below for details)
   * `no_daemonize` - Disable the "daemonize" mode of QEMU, default is false. (see "Windows host" below as example)

@@ -18,6 +18,7 @@ module VagrantPlugins
       attr_accessor :qemu_dir
       attr_accessor :extra_qemu_args
       attr_accessor :extra_netdev_args
+      attr_accessor :extra_drive_args
       attr_accessor :control_port
       attr_accessor :debug_port
       attr_accessor :no_daemonize
@@ -40,6 +41,7 @@ module VagrantPlugins
         @qemu_dir = UNSET_VALUE
         @extra_qemu_args = UNSET_VALUE
         @extra_netdev_args = UNSET_VALUE
+        @extra_drive_args = UNSET_VALUE
         @control_port = UNSET_VALUE
         @debug_port = UNSET_VALUE
         @no_daemonize = UNSET_VALUE
@@ -72,6 +74,7 @@ module VagrantPlugins
         @qemu_dir = "/opt/homebrew/share/qemu" if @qemu_dir == UNSET_VALUE
         @extra_qemu_args = [] if @extra_qemu_args == UNSET_VALUE
         @extra_netdev_args = nil if @extra_netdev_args == UNSET_VALUE
+        @extra_drive_args = nil if @extra_drive_args == UNSET_VALUE
         @control_port = nil if @control_port == UNSET_VALUE
         @debug_port = nil if @debug_port == UNSET_VALUE
         @no_daemonize = false if @no_daemonize == UNSET_VALUE

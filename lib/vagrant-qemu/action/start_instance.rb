@@ -25,6 +25,7 @@ module VagrantPlugins
             :qemu_bin => env[:machine].provider_config.qemu_bin,
             :extra_qemu_args => env[:machine].provider_config.extra_qemu_args,
             :extra_netdev_args => env[:machine].provider_config.extra_netdev_args,
+            :extra_drive_args => env[:machine].provider_config.extra_drive_args,
             :ports => fwPorts,
             :control_port => env[:machine].provider_config.control_port,
             :debug_port => env[:machine].provider_config.debug_port,

@@ -112,9 +112,16 @@ module VagrantPlugins
           end
 
           # drive
+          diskid = 0
+          extra_drive_args = ""
+          if !options[:extra_drive_args].nil?
+            extra_drive_args = ",#{options[:extra_drive_args]}"
+          end
+
           if !options[:drive_interface].nil?
             image_path.each do |img|
-              cmd += %W(-drive if=#{options[:drive_interface]},format=qcow2,file=#{img})
+              cmd += %W(-drive if=#{options[:drive_interface]},id=disk#{diskid},format=qcow2,file=#{img}#{extra_drive_args})
+              diskid += 1
             end
           end
           if options[:arch] == "aarch64" && !options[:firmware_format].nil?
