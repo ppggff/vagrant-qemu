@@ -89,3 +89,7 @@
 # 0.3.10 (2025-05-06)
 
 * Add support for `qemu_bin` to customize QEMU binary
+
+# 0.3.11 (2025-05-06)
+
+* Re-publish with repacked gem
