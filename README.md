@@ -84,6 +84,7 @@ This provider exposes a few provider-specific configuration options:
   * `cpu` - The cpu model of VM, default: `cortex-a72`
   * `smp` - The smp setting (Simulate an SMP system with n CPUs) of VM, default: `2`
   * `memory` - The memory setting of VM, default: `4G`
+  * `disk_resize` - The target disk size of the primary disks, requires resizing of filesystem inside of VM, default: `nil`.
 * debug/expert
   * `ssh_host` - The SSH IP used to access VM, default: `127.0.0.1`
   * `ssh_auto_correct` - Auto correct port collisions for ssh port, default: `false`
@@ -94,11 +95,13 @@ This provider exposes a few provider-specific configuration options:
   * `qemu_dir` - The path to QEMU's install dir, default: `/opt/homebrew/share/qemu`
   * `extra_qemu_args` - The raw list of additional arguments to pass to QEMU. Use with extreme caution. (see "Force Multicore" below as example)
   * `extra_netdev_args` - extra, comma-separated arguments to pass to the -netdev parameter. Use with caution. (see "Force Local IP" below as example)
+  * `extra_drive_args` - Add optional extra arguments to each drive attached, default: `[]`
   * `control_port` - The port number used to control vm from vagrant, default is nil value. (nil means use unix socket)
   * `debug_port` - The port number used to export serial port of the vm for debug, default is nil value. (nil means use unix socket, see "Debug" below for details)
   * `no_daemonize` - Disable the "daemonize" mode of QEMU, default is false. (see "Windows host" below as example)
   * `firmware_format` - The format of aarch64 firmware images (`edk2-aarch64-code.fd` and `edk2-arm-vars.fd`) loaded from `qemu_dir`, default: `raw`
   * `other_default` - The other default arguments used by this plugin, default: `%W(-parallel null -monitor none -display none -vga none)`
+  * `extra_image_opts` - Options passed via `-o` to `qemu-img` when the base qcow2 images are created, default: `[]`
 
 ### Usage
 

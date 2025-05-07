@@ -115,6 +115,9 @@ module VagrantPlugins
               next
             end
 
+            b1.use CloudInitSetup
+            b1.use CleanupDisks
+            b1.use Disk
             b1.use Provision
             b1.use EnvSet, port_collision_repair: true
             b1.use PrepareForwardedPortCollisionParams

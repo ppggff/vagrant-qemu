@@ -58,3 +58,5 @@ en:
         Invalid config.
 
         Error: %{err}
+      floppy_unsupported: |-
+        Floppy disks not supported
