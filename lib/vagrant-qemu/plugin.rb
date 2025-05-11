@@ -24,6 +24,31 @@ module VagrantPlugins
         Config
       end
 
+      provider_capability(:qemu, :set_default_disk_ext) do
+        require File.expand_path("../cap/disk", __FILE__)
+        Cap::Disk
+      end
+
+      provider_capability(:qemu, :default_disk_exts) do
+        require File.expand_path("../cap/disk", __FILE__)
+        Cap::Disk
+      end
+
+      provider_capability(:qemu, :configure_disks) do
+        require File.expand_path("../cap/disk", __FILE__)
+        Cap::Disk
+      end
+
+      provider_capability(:qemu, :cleanup_disks) do
+        require File.expand_path("../cap/disk", __FILE__)
+        Cap::Disk
+      end
+
+      provider_capability(:qemu, :validate_disk_ext) do
+        require File.expand_path("../cap/disk", __FILE__)
+        Cap::Disk
+      end
+
       provider(:qemu, box_format: "libvirt", box_optional: true, parallel: true) do
         # Setup logging and i18n
         setup_logging

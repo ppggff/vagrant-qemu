@@ -25,12 +25,14 @@ module VagrantPlugins
             :qemu_bin => env[:machine].provider_config.qemu_bin,
             :extra_qemu_args => env[:machine].provider_config.extra_qemu_args,
             :extra_netdev_args => env[:machine].provider_config.extra_netdev_args,
+            :extra_drive_args => env[:machine].provider_config.extra_drive_args,
             :ports => fwPorts,
             :control_port => env[:machine].provider_config.control_port,
             :debug_port => env[:machine].provider_config.debug_port,
             :no_daemonize => env[:machine].provider_config.no_daemonize,
             :firmware_format => env[:machine].provider_config.firmware_format,
-            :other_default => env[:machine].provider_config.other_default
+            :other_default => env[:machine].provider_config.other_default,
+            :extra_image_opts => env[:machine].provider_config.extra_image_opts,
           }
 
           env[:ui].output(I18n.t("vagrant_qemu.starting"))

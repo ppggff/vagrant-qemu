@@ -1,3 +1,4 @@
+require 'log4r'
 require 'childprocess'
 require 'securerandom'
 require 'yaml'
@@ -16,11 +17,14 @@ module VagrantPlugins
       attr_reader :vm_id
       attr_reader :data_dir
       attr_reader :tmp_dir
+      attr_reader :attached_drives
 
       def initialize(id, dir, tmp)
         @vm_id = id
         @data_dir = dir
         @tmp_dir = tmp.join("vagrant-qemu")
+        @attached_drives = {disk: [], floppy: [], dvd: []}
+        @logger = Log4r::Logger.new("vagrant_qemu::driver")
       end
 
       def get_current_state
@@ -112,9 +116,16 @@ module VagrantPlugins
           end
 
           # drive
+          diskid = 0
+          extra_drive_args = ""
+          if !options[:extra_drive_args].nil?
+            extra_drive_args = ",#{options[:extra_drive_args]}"
+          end
+
           if !options[:drive_interface].nil?
             image_path.each do |img|
-              cmd += %W(-drive if=#{options[:drive_interface]},format=qcow2,file=#{img})
+              cmd += %W(-drive if=#{options[:drive_interface]},id=disk#{diskid},format=qcow2,file=#{img}#{extra_drive_args})
+              diskid += 1
             end
           end
           if options[:arch] == "aarch64" && !options[:firmware_format].nil?
@@ -122,6 +133,18 @@ module VagrantPlugins
             fm2_path = id_dir.join("edk2-arm-vars.fd").to_s
             cmd += %W(-drive if=pflash,format=#{options[:firmware_format]},file=#{fm1_path},readonly=on)
             cmd += %W(-drive if=pflash,format=#{options[:firmware_format]},file=#{fm2_path})
+          end
+
+          dvd_index = 1
+          @attached_drives[:dvd].each do |disk|
+            cmd += %W(-drive file=#{disk[:Path]},index=#{dvd_index},media=cdrom)
+            dvd_index += 1
+          end
+          if !options[:drive_interface].nil?
+            @attached_drives[:disk].each do |disk|
+              cmd += %W(-drive if=#{options[:drive_interface]},id=disk#{diskid},format=qcow2,file=#{disk[:Path]}#{extra_drive_args})
+              diskid += 1
+            end
           end
 
           # control
@@ -197,7 +220,26 @@ module VagrantPlugins
         # Create image
         options[:image_path].each_with_index do |img, i|
           suffix_index = i > 0 ? "-#{i}" : ''
-          execute("qemu-img", "create", "-f", "qcow2", "-F", "qcow2", "-b", img.to_s, id_dir.join("linked-box#{suffix_index}.img").to_s)
+
+          linked_image = id_dir.join("linked-box#{suffix_index}.img").to_s
+          args = ["create", "-f", "qcow2", "-F", "qcow2", "-b", img.to_s]
+
+          if !options[:extra_image_opts].nil?
+            options[:extra_image_opts].each do |opt|
+              args.push("-o")
+              args.push(opt)
+            end
+          end
+
+          args.push(linked_image)
+
+          if i == 0
+            if !options[:disk_resize].nil?
+              args.push(options[:disk_resize])
+            end
+          end
+
+          execute("qemu-img",  *args)
         end
 
         server = {
@@ -308,6 +350,18 @@ module VagrantPlugins
             return result.stdout
           end
         end
+      end
+
+      def attach_dvd(disk)
+        @attached_drives[:dvd] << disk
+      end
+
+      def attach_disk(disk)
+        @attached_drives[:disk] << disk
+      end
+
+      def disk_dir
+          @data_dir.join(@vm_id)
       end
     end
   end
