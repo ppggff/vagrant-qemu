@@ -84,7 +84,7 @@ This provider exposes a few provider-specific configuration options:
   * `cpu` - The cpu model of VM, default: `cortex-a72`
   * `smp` - The smp setting (Simulate an SMP system with n CPUs) of VM, default: `2`
   * `memory` - The memory setting of VM, default: `4G`
-  * `disk_resize` - The target disk size of the primary disks, requires resizing of filesystem inside of VM, default: `nil`.
+  * `disk_resize` - The target disk size of the primary disk, requires resizing of filesystem inside of VM, default: `nil`.
 * debug/expert
   * `ssh_host` - The SSH IP used to access VM, default: `127.0.0.1`
   * `ssh_auto_correct` - Auto correct port collisions for ssh port, default: `false`

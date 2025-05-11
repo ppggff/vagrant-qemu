@@ -233,8 +233,10 @@ module VagrantPlugins
 
           args.push(linked_image)
 
-          if !options[:disk_resize].nil?
-            args.push(options[:disk_resize])
+          if i == 0
+            if !options[:disk_resize].nil?
+              args.push(options[:disk_resize])
+            end
           end
 
           execute("qemu-img",  *args)
