@@ -276,6 +276,32 @@ Thanks example from @Leandros.
 
 See [pr#73](https://github.com/ppggff/vagrant-qemu/pull/73) for details.
 
+11. Improved VM I/O performance
+
+When creating the disks that are attached, each disk is an id assign in order
+they appear in the `Vagrantfile`. The primary disk has the `id` of `disk0`.
+
+```ruby
+Vagrant.configure("2") do |config|
+  # ... other stuff
+
+  config.vm.provider "qemu" do |qe|
+    # Use a `none` drive interface.
+    qe.drive_interface = "none"
+    qe.extra_drive_args = "cache=none,aio=threads"
+
+    # To improve I/O performance, create a separate I/O thread.
+    # We refer to the primary disk as `disk0`.
+    qe.extra_qemu_args = %w(
+        -object iothread,id=io1
+        -device virtio-blk-pci,drive=disk0,iothread=io1
+    )
+  end
+end
+```
+
+See the [QEMU Documentation](https://www.qemu.org/docs/master/devel/multiple-iothreads.html) and [heiko-sieger.info/tuning-vm-disk-performance/](https://www.heiko-sieger.info/tuning-vm-disk-performance/) for more details.
+
 ## Debug
 
 Serial port is exported to unix socket: `<user_home>/.vagrant.d/tmp/vagrant-qemu/<id>/qemu_socket_serial`, or `debug_port`.
