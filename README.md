@@ -37,6 +37,8 @@ Others:
 * Synced folder support via SMB
 * Basic operation: up, ssh, halt, destroy
 * Basic suport to forwarded ports, see [vagrant doc](https://www.vagrantup.com/docs/networking/forwarded_ports) for details
+* Support Cloud-init, see [vagrant doc](https://developer.hashicorp.com/vagrant/docs/cloud-init/usage) for details
+* Support Disks, see [vagrant doc](https://developer.hashicorp.com/vagrant/docs/disks/usage) for details
 
 ## Usage
 
