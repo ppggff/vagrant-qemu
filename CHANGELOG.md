@@ -93,3 +93,10 @@
 # 0.3.11 (2025-05-06)
 
 * Re-publish with repacked gem
+
+# 0.3.22 (2025-05-19)
+
+* Add support for extra `-drive` arguments
+* Add `extra_image_opts` to customize image creation
+* Add support for cloud-init and disks
+* Add support for resizing disk on vm setup
