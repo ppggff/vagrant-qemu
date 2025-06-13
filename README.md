@@ -325,18 +325,62 @@ To send ctrl+c to GuestOS from `nc`, try:
 
 ## Build
 
-To build the `vagrant-qemu` plugin, clone this repository out, and use
-[Bundler](http://gembundler.com) to get the dependencies:
+To build the `vagrant-qemu` plugin 
 
-```
-bundle
+**Development Environment:**
+
+Ensure your development environment has the necessary tools installed, such as:
+
+* **Ruby**:
+    * [Ruby installation](https://www.ruby-lang.org/en/documentation/installation/)
+    * [Ruby Version Manager (RVM)](https://rvm.io/rvm/install)
+    * [Ruby Installer for Windows](https://rubyinstaller.org/)
+* [Bundler](https://bundler.io/):
+    ```sh
+    gem install bundler
+    ```
+* [Rake](https://github.com/ruby/rake)
+    ```sh
+    gem install rake
+    ```
+
+1. Clone this repository:
+    ```sh
+    git clone https://github.com/ppggff/vagrant-qemu.git
+    cd vagrant-qemu
+    ```
+
+2. Use [bundler](http://gembundler.com) to install the necessary dependencies to ensure all required Ruby gems are available for buidling the plugin out
+    ```sh
+    bundle config set --local path 'vendor/bundle'
+    bundle install
+    ```
+    > This command tells Bundler to install gems in the vendor/bundle directory within your project.
+
+3. Use `rake` to build the plugin. This command will package your changes into a gem file:
+
+    ```sh
+    bundle exec rake build
+    ```
+    > After running this command, you should see a `.gem` file created in the `pkg` directory within the repository. This file represents your built plugin.
+
+4. Use `vagrant plugin install` to install the plugin from the local `.gem` file. This ensures that Vagrant uses the locally built version.
+    
+    ```sh
+    vagrant plugin install ./pkg/vagrant-qemu-<version>.gem
+    ```
+
+    > Replace `<version>` with the actual version number of the locally built `.gem` file
+
+### Check Installed Plugins
+
+After installation, verify that the locally built `vagrant-qemu` plugin is installed by running:
+
+```sh
+vagrant plugin list | grep vagrant-qemu
 ```
 
-Once you have the dependencies, build with `rake`:
-
-```
-bundle exec rake build
-```
+> This command will list all installed plugins, and you should see the vagrant-qemu plugin with the locally built version.
 
 ## Known issue / Troubleshooting
 
