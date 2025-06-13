@@ -1,0 +1,2 @@
+custom_qemu_dir: "/usr/share/qemu"
+custom_qemu_bin: "/usr/bin/qemu-system-x86_64"
