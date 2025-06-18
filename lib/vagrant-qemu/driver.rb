@@ -171,6 +171,11 @@ module VagrantPlugins
 
       def stop(options)
         if running?
+          pid_file = @tmp_dir.join(@vm_id).join("qemu.pid")
+          pid = nil
+          if pid_file.file?
+            pid = File.read(pid_file).to_i
+          end
           if !options[:control_port].nil?
             Socket.tcp("localhost", options[:control_port], connect_timeout: 5) do |sock|
               sock.print "system_powerdown\n"
@@ -184,6 +189,18 @@ module VagrantPlugins
               sock.print "system_powerdown\n"
               sock.close_write
               sock.read rescue nil
+            end
+          end
+          # Wait a few seconds for graceful shutdown fix for #35
+          sleep 5
+          if pid
+            begin
+              # Check if still running
+              Process.kill(0, pid)
+              # If it is, send TERM
+              Process.kill("TERM", pid)
+            rescue Errno::ESRCH
+              # Already exited
             end
           end
         end
