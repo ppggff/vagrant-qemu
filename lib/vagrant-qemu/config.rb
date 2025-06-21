@@ -26,6 +26,7 @@ module VagrantPlugins
       attr_accessor :firmware_format
       attr_accessor :other_default
       attr_accessor :extra_image_opts
+      attr_accessor :numactl_args
 
       def initialize
         @ssh_host = UNSET_VALUE
@@ -51,6 +52,7 @@ module VagrantPlugins
         @firmware_format = UNSET_VALUE
         @other_default = UNSET_VALUE
         @extra_image_opts = UNSET_VALUE
+        @numactl_args = UNSET_VALUE
       end
 
       #-------------------------------------------------------------------
@@ -86,6 +88,7 @@ module VagrantPlugins
         @firmware_format = "raw" if @firmware_format == UNSET_VALUE
         @other_default = %W(-parallel null -monitor none -display none -vga none) if @other_default == UNSET_VALUE
         @extra_image_opts = nil if @extra_image_opts == UNSET_VALUE
+        @numactl_args = nil if @numactl_args == UNSET_VALUE
 
         # TODO better error msg
         @ssh_port = Integer(@ssh_port)

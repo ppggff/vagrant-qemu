@@ -33,6 +33,7 @@ module VagrantPlugins
             :firmware_format => env[:machine].provider_config.firmware_format,
             :other_default => env[:machine].provider_config.other_default,
             :extra_image_opts => env[:machine].provider_config.extra_image_opts,
+            :numactl_args => env[:machine].provider_config.numactl_args,
           }
 
           env[:ui].output(I18n.t("vagrant_qemu.starting"))

@@ -82,6 +82,17 @@ module VagrantPlugins
           end
 
           cmd = []
+
+          if options[:numactl_args] && !options[:numactl_args].nil? && !options[:numactl_args].empty?
+            unless Vagrant::Util::Platform.linux?
+              raise "The 'numactl_args' option is only supported on Linux hosts. Please remove it from your Vagrantfile or use this feature on a compatible system."
+            end
+            unless system('which numactl > /dev/null 2>&1')
+              raise "numactl is not installed on your system. Please install it using your distribution's package manager (e.g. 'sudo apt-get install numactl')."
+            end
+            cmd += ['numactl'] + Array(options[:numactl_args])
+          end
+
           if options[:qemu_bin].nil?
             cmd += %W(qemu-system-#{options[:arch]})
           else

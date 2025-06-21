@@ -39,6 +39,7 @@ Others:
 * Basic suport to forwarded ports, see [vagrant doc](https://www.vagrantup.com/docs/networking/forwarded_ports) for details
 * Support Cloud-init, see [vagrant doc](https://developer.hashicorp.com/vagrant/docs/cloud-init/usage) for details
 * Support Disks, see [vagrant doc](https://developer.hashicorp.com/vagrant/docs/disks/usage) for details
+* Pin NUMA nodes, see [numactl repo](https://github.com/numactl/numactl)
 
 ## Usage
 
@@ -59,6 +60,23 @@ Prepare a `Vagrantfile`, see [Example](#example), and start:
 ```
 vagrant up --provider qemu
 ```
+
+### Installing numactl
+
+The `numactl_args` option is only available on Linux hosts and requires the `numactl` tool to be installed on your system.
+
+- **Debian/Ubuntu**:  
+  ```sh
+  sudo apt-get install numactl
+  ```
+- **RHEL/CentOS/Fedora**:  
+  ```sh
+  sudo dnf install numactl
+  ```
+- **Arch Linux**:  
+  ```sh
+  sudo pacman -S numactl
+  ```
 
 Notes:
 * may need password to setup SMB on Mac,
@@ -104,6 +122,9 @@ This provider exposes a few provider-specific configuration options:
   * `firmware_format` - The format of aarch64 firmware images (`edk2-aarch64-code.fd` and `edk2-arm-vars.fd`) loaded from `qemu_dir`, default: `raw`
   * `other_default` - The other default arguments used by this plugin, default: `%W(-parallel null -monitor none -display none -vga none)`
   * `extra_image_opts` - Options passed via `-o` to `qemu-img` when the base qcow2 images are created, default: `[]`
+  * `numactl_args` - Pin specific NUMA nodes using `numactl`. 
+    > Available on Linux hosts and requires the `numactl` tool to be installed on your system. 
+    > If `numactl` is not installed, QEMU startup will fail if you set this option.
 
 ### Usage
 
@@ -301,6 +322,19 @@ Vagrant.configure("2") do |config|
   end
 end
 ```
+
+12. **(Optional)**: Pin QEMU with numactl (Linux only)
+
+    In your `Vagrantfile`:
+    ```ruby
+    config.qemu.numactl_args = ['--cpunodebind=0', '--membind=0']
+    ```
+
+    This will prepend your specified arguments to the QEMU launch command, e.g.:
+
+    ```sh
+    numactl --cpunodebind=0 --membind=0 qemu-system-x86_64 ...
+    ```
 
 See the [QEMU Documentation](https://www.qemu.org/docs/master/devel/multiple-iothreads.html) and [heiko-sieger.info/tuning-vm-disk-performance/](https://www.heiko-sieger.info/tuning-vm-disk-performance/) for more details.
 

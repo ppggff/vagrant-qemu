@@ -1,0 +1,73 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+# All Vagrant configuration is done below. The "2" in Vagrant.configure
+# configures the configuration version (we support older styles for
+# backwards compatibility). Please don't change it unless you know what
+# you're doing.
+require 'yaml'
+
+qemu_config_data = YAML.load_file('qemu_config.yml')
+
+Vagrant.configure("2") do |config|
+  # The most common configuration options are documented and commented below.
+  # For a complete reference, please see the online documentation at
+  # https://docs.vagrantup.com.
+
+  # Read NUMA information from the file
+  numa_info = File.read("/tmp/numa_info.txt").split("\n").map { |line| line.split }
+
+  # Create a hash to map CPUs to NUMA nodes
+  numactl_hardware = {}
+  numa_info.each do |cpu, node|
+    numactl_hardware[cpu.to_i] = node.to_i
+  end
+
+  # Every Vagrant development environment requires a box. You can search for
+  # boxes at https://vagrantcloud.com/search.
+  config.vm.box = "generic/ubuntu2204"
+  config.vm.box_version = "4.3.12"
+
+  config.vm.define "numactlvm" do |guest|
+    guest.vm.hostname = "numactlvm"
+
+    config.vm.provider "qemu" do |qe|
+        # Customize architecture
+        qe.arch = "x86_64"
+
+        # Machine Type
+        qe.machine = "type=q35,accel=kvm"
+
+        # Use custom qemu build
+        qe.qemu_bin = qemu_config_data['custom_qemu_bin']
+        qe.qemu_dir = qemu_config_data['custom_qemu_dir']
+
+        # CPU configuration
+        qe.cpu = "host"
+
+        # Generate SMP arguments using standard QEMU syntax
+        smp_args = 4  # Example: Set the number of CPUs
+        qe.smp = "#{smp_args}"
+        qe.cpus = smp_args
+
+        # Generate NUMA node bindings
+        numa_nodes = []
+        (0...smp_args).each do |cpu|
+          node = numactl_hardware[cpu]
+          unless numa_nodes.include?(node)
+            numa_nodes << node
+          end
+        end
+
+        # Generate numactl arguments
+        cpunodebind = numa_nodes.join(',')
+        membind = numa_nodes.join(',')
+        qe.numactl_args = ["--cpunodebind=#{cpunodebind}", "--membind=#{membind}"]
+
+        # Network and Drive Configuration
+        qe.net_device = "virtio-net-pci"  # Default, "virtio-net-device"
+    end
+    # Provisioning to set timezone (example)
+    guest.vm.provision "shell", inline: "timedatectl set-timezone America/Phoenix"
+  end
+end
