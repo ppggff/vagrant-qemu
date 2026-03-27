@@ -194,7 +194,7 @@ module VagrantPlugins
         options_file = id_tmp_dir.join("options.yml")
 
         if options_file.file?
-          options = YAML.load_file(options_file) rescue nil
+          options = YAML.safe_load_file(options_file, permitted_classes: [Symbol]) rescue nil
           ssh_port = options[:ssh_port] if !options.nil? && options.key?(:ssh_port)
         end
 
