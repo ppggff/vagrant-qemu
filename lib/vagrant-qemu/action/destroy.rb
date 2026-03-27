@@ -8,7 +8,12 @@ module VagrantPlugins
 
         def call(env)
           env[:ui].info(I18n.t("vagrant_qemu.destroying"))
-          env[:machine].provider.driver.delete
+          begin
+            env[:machine].provider.driver.delete
+          rescue => e
+            raise Errors::VagrantQEMUError,
+              "Failed to delete VM files: #{e.message}. Machine ID preserved."
+          end
           env[:machine].id = nil
 
           @app.call(env)
