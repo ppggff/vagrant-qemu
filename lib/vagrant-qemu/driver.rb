@@ -302,7 +302,7 @@ module VagrantPlugins
             readers = results[0]
 
             # Check if we have exceeded our timeout
-            return if (Time.now.to_i - start_time) > timeout
+            break if (Time.now.to_i - start_time) > timeout
 
             if readers && !readers.empty?
               readers.each do |r|
@@ -322,7 +322,8 @@ module VagrantPlugins
             stderr_writer.close
           end
 
-          result = ::Vagrant::Util::Subprocess::Result.new(process.exit_code, io_data[:stdout], io_data[:stderr])
+          exit_code = process.exited? ? process.exit_code : 0
+          result = ::Vagrant::Util::Subprocess::Result.new(exit_code, io_data[:stdout], io_data[:stderr])
         else
           # Append in the options for subprocess
           cmd << { notify: [:stdout, :stderr, :stdin] }
