@@ -46,13 +46,8 @@ module VagrantPlugins
           env[:machine].config.vm.networks.each do |type, options|
             next if type != :forwarded_port
 
-            # Don't include SSH
-            if options[:id] == "ssh"
-              if options[:host] != env[:machine].provider_config.ssh_port
-                  env[:machine].provider_config.ssh_port = options[:host]
-              end
-              next
-            end
+            # SSH port is handled by PrepareForwardedPortCollisionParams
+            next if options[:id] == "ssh"
 
             # Skip port if it is disabled
             next if options[:disabled]

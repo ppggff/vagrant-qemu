@@ -38,7 +38,7 @@ module VagrantPlugins
 
         return {
           host: @machine.provider_config.ssh_host,
-          port: @machine.provider_config.ssh_port
+          port: @driver.ssh_port || @machine.provider_config.ssh_port
         }
       end
 

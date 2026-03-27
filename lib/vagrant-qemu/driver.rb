@@ -18,12 +18,15 @@ module VagrantPlugins
       attr_reader :data_dir
       attr_reader :tmp_dir
       attr_reader :attached_drives
+      # @return [Integer, nil] Runtime SSH port (may differ from config after collision correction)
+      attr_reader :ssh_port
 
       def initialize(id, dir, tmp)
         @vm_id = id
         @data_dir = dir
         @tmp_dir = tmp.join("vagrant-qemu")
         @attached_drives = {disk: [], floppy: [], dvd: []}
+        @ssh_port = nil
         @logger = Log4r::Logger.new("vagrant_qemu::driver")
       end
 
@@ -189,16 +192,17 @@ module VagrantPlugins
         end
       end
 
-      def get_ssh_port(ssh_port)
+      def get_ssh_port(default_port)
         id_tmp_dir = @tmp_dir.join(@vm_id)
         options_file = id_tmp_dir.join("options.yml")
 
+        port = default_port
         if options_file.file?
           options = YAML.safe_load_file(options_file, permitted_classes: [Symbol]) rescue nil
-          ssh_port = options[:ssh_port] if !options.nil? && options.key?(:ssh_port)
+          port = options[:ssh_port] if !options.nil? && options.key?(:ssh_port)
         end
 
-        ssh_port
+        @ssh_port = port
       end
 
       def import(options)

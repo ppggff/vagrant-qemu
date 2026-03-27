@@ -24,9 +24,9 @@ module VagrantPlugins
             env[:machine_state_id] = :not_created
           end
 
-          # Update ssh_port if needed
+          # Update driver's runtime ssh_port from persisted options
           if env[:machine_state_id] == :running
-            env[:machine].provider_config.ssh_port = env[:machine].provider.driver.get_ssh_port(env[:machine].provider_config.ssh_port)
+            env[:machine].provider.driver.get_ssh_port(env[:machine].provider_config.ssh_port)
           end
           @app.call(env)
         end
