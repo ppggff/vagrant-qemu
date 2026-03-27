@@ -8,6 +8,7 @@ module VagrantPlugins
     autoload :Action, lib_path.join("action")
     autoload :Cap, lib_path.join("cap")
     autoload :Errors, lib_path.join("errors")
+    autoload :Network, lib_path.join("network")
 
     # This returns the path to the source of this plugin.
     #

@@ -1,3 +1,5 @@
+require_relative "../network"
+
 module VagrantPlugins
   module QEMU
     module Action
@@ -7,8 +9,14 @@ module VagrantPlugins
         end
 
         def call(env)
-          if env[:machine].config.vm.networks.length > 0
-            env[:ui].warn(I18n.t("vagrant_qemu.warn_networks"))
+          private_networks = env[:machine].config.vm.networks.select { |t, _| t == :private_network }
+
+          if !private_networks.empty?
+            if env[:machine].provider_config.advanced_network
+              env[:ui].info(I18n.t("vagrant_qemu.advanced_network_enabled"))
+            else
+              env[:ui].warn(I18n.t("vagrant_qemu.warn_networks_need_advanced"))
+            end
           end
 
           @app.call(env)

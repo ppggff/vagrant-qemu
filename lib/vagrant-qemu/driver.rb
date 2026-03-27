@@ -10,6 +10,7 @@ require "vagrant/util/subprocess"
 require "vagrant/util/which"
 
 require_relative "plugin"
+require_relative "network"
 
 module VagrantPlugins
   module QEMU
@@ -110,19 +111,58 @@ module VagrantPlugins
 
           # network
           if !options[:net_device].nil?
-            # net device
-            cmd += %W(-device #{options[:net_device]},netdev=net0)
+            private_networks = options[:private_networks] || []
+            use_advanced = options[:advanced_network] && !private_networks.empty?
 
-            # ports
-            hostfwd = "hostfwd=tcp::#{options[:ssh_port]}-:22"
-            options[:ports].each do |v|
-              hostfwd += ",hostfwd=#{v}"
+            if use_advanced
+              # Dual-NIC: NIC 0 = user-mode (SSH + port forwarding), NIC 1 = advanced backend
+              mac0 = Network.generate_mac(@vm_id, 0)
+              mac1 = Network.generate_mac(@vm_id, 1)
+
+              # NIC 0: user-mode
+              cmd += %W(-device #{options[:net_device]},netdev=net0,mac=#{mac0})
+              hostfwd = "hostfwd=tcp::#{options[:ssh_port]}-:22"
+              options[:ports].each do |v|
+                hostfwd += ",hostfwd=#{v}"
+              end
+              extra_netdev = ""
+              if !options[:extra_netdev_args].nil?
+                extra_netdev = ",#{options[:extra_netdev_args]}"
+              end
+              cmd += %W(-netdev user,id=net0,#{hostfwd}#{extra_netdev})
+
+              # NIC 1: platform-specific backend
+              backend = Network.backend_for(options[:net_mode])
+              cmd += %W(-device #{options[:net_device]},netdev=net1,mac=#{mac1})
+              cmd += backend.build_netdev_args("net1", options)
+
+              # Generate cloud-init network-config for the private NIC
+              pn = private_networks.first
+              if pn[:ip]
+                network_config = Network.build_network_config(
+                  mac0: mac0,
+                  mac1: mac1,
+                  ip: pn[:ip],
+                  netmask: pn[:netmask] || "255.255.255.0"
+                )
+                network_config_file = id_tmp_dir.join("network-config").to_s
+                File.write(network_config_file, network_config)
+                @logger.info("Generated cloud-init network-config at #{network_config_file}")
+              end
+            else
+              # Single NIC: user-mode only (original behavior, no cloud-init)
+              cmd += %W(-device #{options[:net_device]},netdev=net0)
+
+              hostfwd = "hostfwd=tcp::#{options[:ssh_port]}-:22"
+              options[:ports].each do |v|
+                hostfwd += ",hostfwd=#{v}"
+              end
+              extra_netdev = ""
+              if !options[:extra_netdev_args].nil?
+                extra_netdev = ",#{options[:extra_netdev_args]}"
+              end
+              cmd += %W(-netdev user,id=net0,#{hostfwd}#{extra_netdev})
             end
-            extra_netdev = ""
-            if !options[:extra_netdev_args].nil?
-              extra_netdev = ",#{options[:extra_netdev_args]}"
-            end
-            cmd += %W(-netdev user,id=net0,#{hostfwd}#{extra_netdev})
           end
 
           # drive

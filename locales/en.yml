@@ -19,6 +19,13 @@ en:
       Warning! The QEMU provider doesn't support any of the Vagrant
       high-level network configurations (`config.vm.network`). They
       will be silently ignored.
+    warn_networks_need_advanced: |-
+      Warning! You have configured `private_network` but `advanced_network`
+      is not enabled. The network configuration will be ignored.
+      To enable advanced networking, add the following to your provider config:
+        qe.advanced_network = true
+    advanced_network_enabled: |-
+      Advanced networking enabled: dual-NIC mode with cloud-init network config.
     will_not_destroy: |-
       The instance '%{name}' will not be destroyed, since the confirmation
       was declined.
