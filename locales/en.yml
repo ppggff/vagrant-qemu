@@ -60,3 +60,8 @@ en:
         Error: %{err}
       floppy_unsupported: |-
         Floppy disks not supported
+      qemu_binary_not_found: |-
+        The QEMU binary was not found. Please ensure QEMU is installed
+        and available in your PATH.
+
+        Looked for: %{binary}

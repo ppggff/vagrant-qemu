@@ -30,6 +30,10 @@ module VagrantPlugins
       class ConfigError < VagrantQEMUError
         error_key(:config_error)
       end
+
+      class QemuBinaryNotFound < VagrantQEMUError
+        error_key(:qemu_binary_not_found)
+      end
     end
   end
 end

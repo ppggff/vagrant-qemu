@@ -7,6 +7,7 @@ require "vagrant/util/busy"
 require 'vagrant/util/io'
 require "vagrant/util/safe_chdir"
 require "vagrant/util/subprocess"
+require "vagrant/util/which"
 
 require_relative "plugin"
 
@@ -93,6 +94,12 @@ module VagrantPlugins
             else
               cmd += %W(#{options[:qemu_bin]})
             end
+          end
+
+          # Validate that the QEMU binary exists
+          qemu_binary = cmd.first
+          if !Vagrant::Util::Which.which(qemu_binary) && !File.executable?(qemu_binary)
+            raise Errors::QemuBinaryNotFound, binary: qemu_binary
           end
 
           # basic
