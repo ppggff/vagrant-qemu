@@ -265,6 +265,7 @@ module VagrantPlugins
 
       def execute(*cmd, **opts, &block)
         result = nil
+        interrupted = false
 
         if opts && opts[:detach]
           # give it some time to startup
