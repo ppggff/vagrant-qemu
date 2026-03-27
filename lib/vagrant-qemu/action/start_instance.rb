@@ -11,7 +11,7 @@ module VagrantPlugins
         end
 
         def call(env)
-          fwPorts = forwarded_ports(env)
+          fw_ports = forwarded_ports(env)
           options = {
             :ssh_host => env[:machine].provider_config.ssh_host,
             :ssh_port => env[:machine].provider_config.ssh_port,
@@ -26,7 +26,7 @@ module VagrantPlugins
             :extra_qemu_args => env[:machine].provider_config.extra_qemu_args,
             :extra_netdev_args => env[:machine].provider_config.extra_netdev_args,
             :extra_drive_args => env[:machine].provider_config.extra_drive_args,
-            :ports => fwPorts,
+            :ports => fw_ports,
             :control_port => env[:machine].provider_config.control_port,
             :debug_port => env[:machine].provider_config.debug_port,
             :no_daemonize => env[:machine].provider_config.no_daemonize,
