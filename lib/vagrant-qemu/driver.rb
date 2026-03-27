@@ -181,23 +181,57 @@ module VagrantPlugins
 
       def stop(options)
         if running?
-          if !options[:control_port].nil?
-            Socket.tcp("localhost", options[:control_port], connect_timeout: 5) do |sock|
-              sock.print "system_powerdown\n"
-              sock.close_write
-              sock.read rescue nil
-            end
-          else
-            id_tmp_dir = @tmp_dir.join(@vm_id)
-            unix_socket_path = id_tmp_dir.join("qemu_socket").to_s
-            Socket.unix(unix_socket_path) do |sock|
-              sock.print "system_powerdown\n"
-              sock.close_write
-              sock.read rescue nil
-            end
+          send_powerdown(options)
+          wait_for_shutdown(options[:graceful_timeout] || 60)
+        end
+      end
+
+      private
+
+      def send_powerdown(options)
+        if !options[:control_port].nil?
+          Socket.tcp("localhost", options[:control_port], connect_timeout: 5) do |sock|
+            sock.print "system_powerdown\n"
+            sock.close_write
+            sock.read rescue nil
+          end
+        else
+          id_tmp_dir = @tmp_dir.join(@vm_id)
+          unix_socket_path = id_tmp_dir.join("qemu_socket").to_s
+          Socket.unix(unix_socket_path) do |sock|
+            sock.print "system_powerdown\n"
+            sock.close_write
+            sock.read rescue nil
           end
         end
       end
+
+      def wait_for_shutdown(timeout)
+        timeout.times do
+          return unless running?
+          sleep 1
+        end
+
+        # Still running after timeout, force kill
+        if running?
+          @logger.warn("VM did not shut down within #{timeout}s, forcing kill")
+          force_kill
+        end
+      end
+
+      def force_kill
+        pid_file = @tmp_dir.join(@vm_id).join("qemu.pid")
+        return unless pid_file.file?
+
+        pid = File.read(pid_file).to_i
+        begin
+          Process.kill("KILL", pid)
+        rescue Errno::ESRCH
+          # Process already gone
+        end
+      end
+
+      public
 
       def get_ssh_port(default_port)
         id_tmp_dir = @tmp_dir.join(@vm_id)
