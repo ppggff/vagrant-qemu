@@ -39,6 +39,7 @@ Others:
 * Basic suport to forwarded ports, see [vagrant doc](https://www.vagrantup.com/docs/networking/forwarded_ports) for details
 * Support Cloud-init, see [vagrant doc](https://developer.hashicorp.com/vagrant/docs/cloud-init/usage) for details
 * Support Disks, see [vagrant doc](https://developer.hashicorp.com/vagrant/docs/disks/usage) for details
+* Advanced networking (opt-in): dual-NIC with `private_network` support via QEMU native vmnet (macOS), TAP (Linux), or socket multicast (cross-platform)
 
 ## Usage
 
@@ -104,6 +105,12 @@ This provider exposes a few provider-specific configuration options:
   * `firmware_format` - The format of aarch64 firmware images (`edk2-aarch64-code.fd` and `edk2-arm-vars.fd`) loaded from `qemu_dir`, default: `raw`
   * `other_default` - The other default arguments used by this plugin, default: `%W(-parallel null -monitor none -display none -vga none)`
   * `extra_image_opts` - Options passed via `-o` to `qemu-img` when the base qcow2 images are created, default: `[]`
+* advanced networking (requires `advanced_network = true`)
+  * `advanced_network` - Enable dual-NIC advanced networking with `private_network` support, default: `false`
+  * `net_mode` - Network backend: `:auto` (detect by platform), `:vmnet_shared`, `:vmnet_host`, `:vmnet_bridged` (macOS), `:tap` (Linux), `:socket` (cross-platform), default: `:auto`
+  * `vmnet_interface` - Physical interface for vmnet-bridged mode, default: `en0`
+  * `tap_device` - TAP device name for Linux tap backend, default: `nil` (uses `tap0`)
+  * `mcast_addr` - Multicast address for socket backend, default: `nil` (uses `230.0.0.1:1234`)
 
 ### Usage
 
@@ -304,6 +311,36 @@ end
 
 See the [QEMU Documentation](https://www.qemu.org/docs/master/devel/multiple-iothreads.html) and [heiko-sieger.info/tuning-vm-disk-performance/](https://www.heiko-sieger.info/tuning-vm-disk-performance/) for more details.
 
+12. Advanced networking with private_network
+
+Uses QEMU's native vmnet.framework on macOS (requires sudo), TAP on Linux, or socket multicast on other platforms. The plugin creates two NICs: NIC 0 (user-mode for SSH and port forwarding) and NIC 1 (platform backend for VM networking). Cloud-init network-config is automatically generated to assign the static IP.
+
+```ruby
+Vagrant.configure("2") do |config|
+  config.vm.box = "ppggff/centos-7-aarch64-2009-4K"
+  config.vm.network "private_network", ip: "192.168.105.10"
+
+  config.vm.provider "qemu" do |qe|
+    qe.advanced_network = true
+    # qe.net_mode = :vmnet_shared  # default on macOS when :auto
+  end
+end
+```
+
+Notes:
+* The guest image must support cloud-init for the static IP to be configured automatically
+* On macOS, vmnet requires running QEMU with `sudo` (or the `com.apple.vm.networking` entitlement)
+* Without `advanced_network = true`, the `private_network` configuration is ignored with a warning
+* When only one NIC is needed (no `private_network`), cloud-init is not used, avoiding compatibility issues
+
+Platform support:
+
+| Platform | Backend | Host ↔ VM | VM ↔ VM | External dependency |
+|----------|---------|:---------:|:-------:|:-------------------:|
+| macOS    | vmnet-shared/host/bridged | Yes | Yes | None (QEMU >= 7.0) |
+| Linux    | TAP + bridge | Yes | Yes | None (`ip` command) |
+| Windows  | socket multicast | No (use port forwarding) | Yes | None |
+
 ## Debug
 
 Serial port is exported to unix socket: `<user_home>/.vagrant.d/tmp/vagrant-qemu/<id>/qemu_socket_serial`, or `debug_port`.
@@ -381,6 +418,25 @@ vagrant plugin list | grep vagrant-qemu
 ```
 
 > This command will list all installed plugins, and you should see the vagrant-qemu plugin with the locally built version.
+
+### Running Tests
+
+```sh
+# Unit tests (fast, no QEMU needed)
+bundle exec rake spec:unit
+
+# Acceptance tests (mock QEMU, no real VM)
+bundle exec rake spec:acceptance
+
+# End-to-end tests (requires QEMU and a box image)
+TEST_QEMU=1 bundle exec rake spec:e2e
+
+# End-to-end with vmnet (requires sudo + macOS)
+TEST_VMNET=1 bundle exec rake spec:e2e
+
+# All tests
+bundle exec rake spec
+```
 
 ## Known issue / Troubleshooting
 
@@ -461,6 +517,4 @@ end
 * Support NFS shared folder
 * Support package VM to box
 * More configures
-* Better error messages
-* Network
 * GUI mode
