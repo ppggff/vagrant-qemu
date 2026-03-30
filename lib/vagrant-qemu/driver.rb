@@ -120,8 +120,9 @@ module VagrantPlugins
 
             if use_advanced
               # Dual-NIC: NIC 0 = user-mode (SSH + port forwarding), NIC 1 = advanced backend
+              pn = private_networks.first
               mac0 = Network.generate_mac(@vm_id, 0)
-              mac1 = Network.generate_mac(@vm_id, 1)
+              mac1 = pn[:mac] || Network.generate_mac(@vm_id, 1)
 
               # NIC 0: user-mode
               cmd += %W(-device #{options[:net_device]},netdev=net0,mac=#{mac0})
@@ -141,7 +142,6 @@ module VagrantPlugins
               cmd += backend.build_netdev_args("net1", options)
 
               # Generate cloud-init network-config for the private NIC
-              pn = private_networks.first
               if pn[:ip]
                 network_config = Network.build_network_config(
                   mac0: mac0,

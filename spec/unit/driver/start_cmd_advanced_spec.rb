@@ -75,6 +75,15 @@ describe VagrantPlugins::QEMU::Driver, "start command line (dual NIC)" do
     expect(macs[0]).not_to eq macs[1]
   end
 
+  it "uses user-specified MAC for NIC 1 when provided" do
+    opts = advanced_options.merge(
+      private_networks: [{ ip: "192.168.105.10", netmask: "255.255.255.0", mac: "AA:BB:CC:DD:EE:FF" }]
+    )
+    subject.start(opts)
+    cmd_str = @captured_cmd.join(" ")
+    expect(cmd_str).to include("mac=AA:BB:CC:DD:EE:FF")
+  end
+
   it "generates cloud-init network-config file" do
     subject.start(advanced_options)
     config_file = @tmp_base.join("vagrant-qemu", vm_id, "network-config")
