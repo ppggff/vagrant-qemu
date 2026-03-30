@@ -43,6 +43,14 @@ module VagrantPlugins
             :mcast_addr => config.mcast_addr,
           }
 
+          # Pick up SSH port that may have been corrected by HandleForwardedPortCollisions
+          env[:machine].config.vm.networks.each do |type, opts|
+            if type == :forwarded_port && opts[:id] == "ssh"
+              options[:ssh_port] = opts[:host]
+              break
+            end
+          end
+
           # Collect private_network configs from Vagrantfile
           private_networks = env[:machine].config.vm.networks.select { |t, _| t == :private_network }
           options[:private_networks] = private_networks.map { |_, opts| opts }
