@@ -1,6 +1,23 @@
 require "spec_helper"
 require "open3"
 
+# E2E test box configuration:
+#
+# TEST_BOX          - Box for basic tests (smoke, forwarded_port).
+#                     Any box that boots and has SSH. No cloud-init needed.
+#                     Default: "ppggff/centos-7-aarch64-2009-4K"
+#
+# TEST_BOX_CLOUDINIT - Box for advanced network tests.
+#                      Must support cloud-init for static IP configuration.
+#                      Default: "generic/ubuntu2204"
+#
+# Examples:
+#   TEST_BOX=ppggff/centos-7-aarch64-2009-4K TEST_QEMU=1 bundle exec rake spec:e2e
+#   TEST_BOX_CLOUDINIT=generic/ubuntu2204 TEST_VMNET=1 bundle exec rake spec:e2e
+
+TEST_BOX = ENV.fetch("TEST_BOX", "ppggff/centos-7-aarch64-2009-4K")
+TEST_BOX_CLOUDINIT = ENV.fetch("TEST_BOX_CLOUDINIT", "generic/ubuntu2204")
+
 module E2EHelper
   def qemu_installed?
     system("which qemu-system-aarch64 > /dev/null 2>&1")
@@ -8,6 +25,14 @@ module E2EHelper
 
   def vmnet_available?
     RbConfig::CONFIG['host_os'] =~ /darwin/ && Process.uid == 0
+  end
+
+  def test_box
+    TEST_BOX
+  end
+
+  def test_box_cloudinit
+    TEST_BOX_CLOUDINIT
   end
 
   def vagrant_up(cwd, provider: "qemu", timeout: 300)

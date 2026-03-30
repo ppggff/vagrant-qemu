@@ -13,7 +13,7 @@ describe "forwarded ports end-to-end", :requires_qemu do
   it "forwards guest port to host" do
     File.write(@work_dir.join("Vagrantfile"), <<~RUBY)
       Vagrant.configure("2") do |config|
-        config.vm.box = "ppggff/centos-7-aarch64-2009-4K"
+        config.vm.box = "#{test_box}"
         config.vm.synced_folder ".", "/vagrant", disabled: true
         config.vm.network "forwarded_port", guest: 8000, host: 18000
         config.vm.provider "qemu" do |qe|

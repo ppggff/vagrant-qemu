@@ -13,7 +13,7 @@ describe "advanced networking end-to-end", :requires_vmnet do
   it "VM gets the configured static IP" do
     File.write(@work_dir.join("Vagrantfile"), <<~RUBY)
       Vagrant.configure("2") do |config|
-        config.vm.box = "ppggff/centos-7-aarch64-2009-4K"
+        config.vm.box = "#{test_box_cloudinit}"
         config.vm.synced_folder ".", "/vagrant", disabled: true
         config.vm.network "private_network", ip: "192.168.105.10"
         config.vm.provider "qemu" do |qe|
@@ -32,7 +32,7 @@ describe "advanced networking end-to-end", :requires_vmnet do
   it "host can ping the VM IP" do
     File.write(@work_dir.join("Vagrantfile"), <<~RUBY)
       Vagrant.configure("2") do |config|
-        config.vm.box = "ppggff/centos-7-aarch64-2009-4K"
+        config.vm.box = "#{test_box_cloudinit}"
         config.vm.synced_folder ".", "/vagrant", disabled: true
         config.vm.network "private_network", ip: "192.168.105.11"
         config.vm.provider "qemu" do |qe|
@@ -52,7 +52,7 @@ describe "advanced networking end-to-end", :requires_vmnet do
     File.write(@work_dir.join("Vagrantfile"), <<~RUBY)
       Vagrant.configure("2") do |config|
         config.vm.define "vm1" do |c|
-          c.vm.box = "ppggff/centos-7-aarch64-2009-4K"
+          c.vm.box = "#{test_box_cloudinit}"
           c.vm.synced_folder ".", "/vagrant", disabled: true
           c.vm.network "private_network", ip: "192.168.105.20"
           c.vm.provider "qemu" do |qe|
@@ -64,7 +64,7 @@ describe "advanced networking end-to-end", :requires_vmnet do
         end
 
         config.vm.define "vm2" do |c|
-          c.vm.box = "ppggff/centos-7-aarch64-2009-4K"
+          c.vm.box = "#{test_box_cloudinit}"
           c.vm.synced_folder ".", "/vagrant", disabled: true
           c.vm.network "private_network", ip: "192.168.105.21"
           c.vm.provider "qemu" do |qe|
