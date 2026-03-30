@@ -66,9 +66,13 @@ module VagrantPlugins
           id_tmp_dir = @tmp_dir.join(@vm_id)
           FileUtils.mkdir_p(id_tmp_dir)
 
-          # dump options
+          # Persist only the runtime state we need to read back later
+          persisted_state = {
+            :ssh_port => options[:ssh_port],
+            :control_port => options[:control_port],
+          }
           options_file = id_tmp_dir.join("options.yml")
-          File.write(options_file, options.to_yaml)
+          File.write(options_file, persisted_state.to_yaml)
 
           control_socket = ""
           if !options[:control_port].nil?
