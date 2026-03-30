@@ -94,7 +94,7 @@
 
 * Re-publish with repacked gem
 
-# 0.3.22 (2025-05-19)
+# 0.3.12 (2025-05-19)
 
 * Add support for extra `-drive` arguments
 * Add `extra_image_opts` to customize image creation
