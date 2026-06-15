@@ -41,6 +41,31 @@ describe "forwarded ports end-to-end", :requires_qemu do
     expect(connected).to eq true
   end
 
+  it "user-defined forwarded_port auto-corrects when host port is in use" do
+    require 'socket'
+    # Hold the host port in this process so QEMU's hostfwd attempt would collide.
+    blocker = TCPServer.new("127.0.0.1", 28000)
+    begin
+      File.write(@work_dir.join("Vagrantfile"), <<~RUBY)
+        Vagrant.configure("2") do |config|
+          config.vm.box = "#{test_box}"
+          config.vm.synced_folder ".", "/vagrant", disabled: true
+          config.vm.network "forwarded_port", guest: 80, host: 28000, auto_correct: true
+          config.vm.provider "qemu" do |qe|
+            qe.memory = "2G"
+          end
+        end
+      RUBY
+
+      # Without auto-correct, QEMU's hostfwd would fail to bind 28000 and `up` would error.
+      # Successful `up` proves Vagrant remapped the host port.
+      result = vagrant_up(@work_dir, timeout: 300)
+      expect(result[:exit_code]).to eq 0
+    ensure
+      blocker.close rescue nil
+    end
+  end
+
   it "ssh_auto_correct allows multiple VMs" do
     File.write(@work_dir.join("Vagrantfile"), <<~RUBY)
       Vagrant.configure("2") do |config|
