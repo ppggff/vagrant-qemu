@@ -34,6 +34,10 @@ module VagrantPlugins
       class QemuBinaryNotFound < VagrantQEMUError
         error_key(:qemu_binary_not_found)
       end
+
+      class DestroyError < VagrantQEMUError
+        error_key(:destroy_error)
+      end
     end
   end
 end

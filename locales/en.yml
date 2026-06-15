@@ -26,6 +26,11 @@ en:
         qe.advanced_network = true
     advanced_network_enabled: |-
       Advanced networking enabled: dual-NIC mode with cloud-init network config.
+    warn_network_requires_sudo: |-
+      Warning! The selected network backend requires elevated privileges.
+      QEMU will likely fail to create the network interface unless Vagrant
+      is run with sudo (or the QEMU binary carries the required entitlement,
+      e.g. com.apple.vm.networking for vmnet on macOS).
     will_not_destroy: |-
       The instance '%{name}' will not be destroyed, since the confirmation
       was declined.
@@ -72,3 +77,8 @@ en:
         and available in your PATH.
 
         Looked for: %{binary}
+      destroy_error: |-
+        Failed to delete the VM files: %{message}
+
+        The machine ID has been preserved. Fix the underlying issue and
+        run `vagrant destroy` again.

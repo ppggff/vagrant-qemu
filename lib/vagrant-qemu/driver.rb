@@ -121,8 +121,7 @@ module VagrantPlugins
             if use_advanced
               # Dual-NIC: NIC 0 = user-mode (SSH + port forwarding), NIC 1 = advanced backend
               pn = private_networks.first
-              mac0 = Network.generate_mac(@vm_id, 0)
-              mac1 = pn[:mac] || Network.generate_mac(@vm_id, 1)
+              mac0, mac1 = Network.nic_macs(@vm_id, pn)
 
               # NIC 0: user-mode
               cmd += %W(-device #{options[:net_device]},netdev=net0,mac=#{mac0})
@@ -137,22 +136,11 @@ module VagrantPlugins
               cmd += %W(-netdev user,id=net0,#{hostfwd}#{extra_netdev})
 
               # NIC 1: platform-specific backend
+              # (the static-IP cloud-init seed is built and attached by the
+              # CloudInitNetwork action, not here)
               backend = Network.backend_for(options[:net_mode])
               cmd += %W(-device #{options[:net_device]},netdev=net1,mac=#{mac1})
               cmd += backend.build_netdev_args("net1", options)
-
-              # Generate cloud-init network-config for the private NIC
-              if pn[:ip]
-                network_config = Network.build_network_config(
-                  mac0: mac0,
-                  mac1: mac1,
-                  ip: pn[:ip],
-                  netmask: pn[:netmask] || "255.255.255.0"
-                )
-                network_config_file = id_tmp_dir.join("network-config").to_s
-                File.write(network_config_file, network_config)
-                @logger.info("Generated cloud-init network-config at #{network_config_file}")
-              end
             else
               # Single NIC: user-mode only (original behavior, no cloud-init)
               cmd += %W(-device #{options[:net_device]},netdev=net0)
@@ -225,12 +213,24 @@ module VagrantPlugins
 
       def stop(options)
         if running?
-          send_powerdown(options)
+          send_powerdown(with_persisted_control_port(options))
           wait_for_shutdown(options[:graceful_timeout] || 60)
         end
       end
 
       private
+
+      # Prefer the control_port the VM was actually started with (persisted
+      # in options.yml) so halt still works after a Vagrantfile edit.
+      def with_persisted_control_port(options)
+        options_file = @tmp_dir.join(@vm_id).join("options.yml")
+        return options if !options_file.file?
+
+        persisted = YAML.safe_load(File.read(options_file), permitted_classes: [Symbol]) rescue nil
+        return options if persisted.nil? || !persisted.key?(:control_port)
+
+        options.merge(:control_port => persisted[:control_port])
+      end
 
       def send_powerdown(options)
         if !options[:control_port].nil?
@@ -283,7 +283,8 @@ module VagrantPlugins
 
         port = default_port
         if options_file.file?
-          options = YAML.safe_load_file(options_file, permitted_classes: [Symbol]) rescue nil
+          # safe_load + File.read (not safe_load_file) so older Psych works too
+          options = YAML.safe_load(File.read(options_file), permitted_classes: [Symbol]) rescue nil
           port = options[:ssh_port] if !options.nil? && options.key?(:ssh_port)
         end
 

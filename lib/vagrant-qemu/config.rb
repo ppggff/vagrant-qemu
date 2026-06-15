@@ -26,6 +26,7 @@ module VagrantPlugins
       attr_accessor :firmware_format
       attr_accessor :other_default
       attr_accessor :extra_image_opts
+      attr_accessor :graceful_timeout  # seconds to wait for guest shutdown before force kill
       # Advanced networking options
       attr_accessor :advanced_network   # bool, opt-in for dual-NIC setup
       attr_accessor :net_mode           # :auto, :vmnet_shared, :vmnet_host, :vmnet_bridged, :tap, :socket
@@ -57,6 +58,7 @@ module VagrantPlugins
         @firmware_format = UNSET_VALUE
         @other_default = UNSET_VALUE
         @extra_image_opts = UNSET_VALUE
+        @graceful_timeout = UNSET_VALUE
         @advanced_network = UNSET_VALUE
         @net_mode = UNSET_VALUE
         @vmnet_interface = UNSET_VALUE
@@ -97,6 +99,7 @@ module VagrantPlugins
         @firmware_format = "raw" if @firmware_format == UNSET_VALUE
         @other_default = %W(-parallel null -monitor none -display none -vga none) if @other_default == UNSET_VALUE
         @extra_image_opts = nil if @extra_image_opts == UNSET_VALUE
+        @graceful_timeout = 60 if @graceful_timeout == UNSET_VALUE
         @advanced_network = false if @advanced_network == UNSET_VALUE
         @net_mode = :auto if @net_mode == UNSET_VALUE
         @vmnet_interface = "en0" if @vmnet_interface == UNSET_VALUE
@@ -105,6 +108,7 @@ module VagrantPlugins
 
         # TODO better error msg
         @ssh_port = Integer(@ssh_port)
+        @graceful_timeout = Integer(@graceful_timeout)
       end
 
       def validate(machine)

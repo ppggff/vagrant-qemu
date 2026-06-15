@@ -11,8 +11,9 @@ module VagrantPlugins
           begin
             env[:machine].provider.driver.delete
           rescue => e
-            raise Errors::VagrantQEMUError,
-              "Failed to delete VM files: #{e.message}. Machine ID preserved."
+            # Vagrant errors only render error_key translations; a bare
+            # String here would be silently dropped.
+            raise Errors::DestroyError, message: e.message
           end
           env[:machine].id = nil
 

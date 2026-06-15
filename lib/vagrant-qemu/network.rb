@@ -51,6 +51,17 @@ module VagrantPlugins
         "52:54:00:#{hash[0..1]}:#{hash[2..3]}:#{hash[4..5]}"
       end
 
+      # MAC pair for the dual-NIC setup; NIC 1 honors a user-specified MAC.
+      # Single source of truth so the QEMU command line (driver) and the
+      # cloud-init network-config (CloudInitNetwork action) never diverge.
+      #
+      # @param vm_id [String]
+      # @param pn [Hash, nil] first private_network options
+      # @return [Array(String, String)] [mac0, mac1]
+      def self.nic_macs(vm_id, pn)
+        [generate_mac(vm_id, 0), (pn && pn[:mac]) || generate_mac(vm_id, 1)]
+      end
+
       # Build cloud-init network-config v2 YAML for dual-NIC setup.
       # Only called when advanced_network is enabled and private_network is configured.
       #

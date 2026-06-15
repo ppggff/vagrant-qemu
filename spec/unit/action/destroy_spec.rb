@@ -32,4 +32,15 @@ describe VagrantPlugins::QEMU::Action::Destroy do
       VagrantPlugins::QEMU::Errors::VagrantQEMUError
     )
   end
+
+  it "surfaces the underlying error message to the user" do
+    VagrantPlugins::QEMU::Plugin.setup_i18n
+    ctx = mock_vagrant_env
+    allow(ctx[:driver]).to receive(:delete).and_raise(RuntimeError, "disk is busy")
+
+    action = described_class.new(app, ctx[:env])
+    expect { action.call(ctx[:env]) }.to raise_error(
+      VagrantPlugins::QEMU::Errors::DestroyError, /disk is busy/
+    )
+  end
 end

@@ -84,18 +84,8 @@ describe VagrantPlugins::QEMU::Driver, "start command line (dual NIC)" do
     expect(cmd_str).to include("mac=AA:BB:CC:DD:EE:FF")
   end
 
-  it "generates cloud-init network-config file" do
+  it "does not write network-config itself (seed built by CloudInitNetwork action)" do
     subject.start(advanced_options)
-    config_file = @tmp_base.join("vagrant-qemu", vm_id, "network-config")
-    expect(config_file).to exist
-    parsed = YAML.safe_load(File.read(config_file))
-    expect(parsed["network"]["version"]).to eq 2
-    expect(parsed["network"]["ethernets"]["private-nic"]["addresses"]).to eq ["192.168.105.10/24"]
-  end
-
-  it "does not generate cloud-init when no IP specified" do
-    opts = advanced_options.merge(private_networks: [{ netmask: "255.255.255.0" }])
-    subject.start(opts)
     config_file = @tmp_base.join("vagrant-qemu", vm_id, "network-config")
     expect(config_file).not_to exist
   end

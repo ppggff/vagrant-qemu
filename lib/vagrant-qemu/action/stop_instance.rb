@@ -9,7 +9,8 @@ module VagrantPlugins
 
         def call(env)
           options = {
-            :control_port => env[:machine].provider_config.control_port
+            :control_port => env[:machine].provider_config.control_port,
+            :graceful_timeout => env[:machine].provider_config.graceful_timeout,
           }
 
           env[:ui].info(I18n.t("vagrant_qemu.stopping"))
