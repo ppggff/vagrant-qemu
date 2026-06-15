@@ -116,6 +116,7 @@ module VagrantPlugins
             end
 
             b1.use CloudInitSetup
+            b1.use CloudInitNetwork
             b1.use CleanupDisks
             b1.use Disk
             b1.use Provision
@@ -173,6 +174,7 @@ module VagrantPlugins
       autoload :StartInstance, action_root.join("start_instance")
       autoload :StopInstance, action_root.join("stop_instance")
       autoload :Destroy, action_root.join("destroy")
+      autoload :CloudInitNetwork, action_root.join("cloud_init_network")
       autoload :TimedProvision, action_root.join("timed_provision") # some plugins now expect this action to exist
       autoload :WarnNetworks, action_root.join("warn_networks")
       autoload :PrepareForwardedPortCollisionParams, action_root.join("prepare_forwarded_port_collision_params")
