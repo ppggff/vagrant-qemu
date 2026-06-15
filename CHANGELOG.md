@@ -114,6 +114,12 @@
   (`safe_load`); `vagrant halt` reads back the persisted control_port
 * Graceful shutdown on halt with configurable `graceful_timeout` (default 60s),
   force kill as fallback
+* Host-aware defaults for `arch`/`machine`/`cpu`/`net_device`/`qemu_dir`: detect
+  the host arch (Apple Silicon vs Intel) and OS, default to native acceleration
+  (`hvf`/`kvm`/`whpx`) with `cpu=host` when guest arch matches the host, and to
+  `accel=tcg`/`cpu=max` when emulating; resolve `qemu_dir` from
+  `QEMU_DIR`/`HOMEBREW_PREFIX`/per-host path; skip the `qemu_dir` check for
+  x86_64 (SeaBIOS) so Intel Macs no longer fail with "Invalid qemu dir" (#59, #50)
 * Validate the QEMU binary exists before starting the VM
 * Destroy failures now surface the underlying error and preserve the machine ID
 * Warn when private_network is configured without `advanced_network`, when the

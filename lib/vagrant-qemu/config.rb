@@ -79,16 +79,26 @@ module VagrantPlugins
         @ssh_host = "127.0.0.1" if @ssh_host == UNSET_VALUE
         @ssh_port = 50022 if @ssh_port == UNSET_VALUE
         @ssh_auto_correct = false if @ssh_auto_correct == UNSET_VALUE
-        @arch = "aarch64" if @arch == UNSET_VALUE
-        @machine = "virt,accel=hvf,highmem=on" if @machine == UNSET_VALUE
-        @cpu = "host" if @cpu == UNSET_VALUE
+        # Resolve arch first; the binary is qemu-system-<arch> and every other
+        # default below keys off the *resolved* arch (so setting only qe.arch
+        # still yields a consistent machine/cpu/net_device/qemu_dir).
+        @arch = host_arch if @arch == UNSET_VALUE
+
+        # Native virtualization (guest arch == host arch) uses the host's
+        # hardware accelerator with cpu=host; cross-arch emulation falls back to
+        # TCG with cpu=max (host is invalid under TCG).
+        native = (@arch == host_arch)
+        base_machine = (@arch == "aarch64" ? "virt,highmem=on" : "q35")
+        accel = native ? host_accel : "tcg"
+        @machine = "#{base_machine},accel=#{accel}" if @machine == UNSET_VALUE
+        @cpu = (native ? "host" : "max") if @cpu == UNSET_VALUE
         @smp = "2" if @smp == UNSET_VALUE
         @memory = "4G" if @memory == UNSET_VALUE
-        @net_device = "virtio-net-device" if @net_device == UNSET_VALUE
+        @net_device = (@arch == "aarch64" ? "virtio-net-device" : "virtio-net-pci") if @net_device == UNSET_VALUE
         @drive_interface = "virtio" if @drive_interface == UNSET_VALUE
         @image_path = nil if @image_path == UNSET_VALUE
         @qemu_bin = nil if @qemu_bin == UNSET_VALUE
-        @qemu_dir = "/opt/homebrew/share/qemu" if @qemu_dir == UNSET_VALUE
+        @qemu_dir = default_qemu_dir(@arch) if @qemu_dir == UNSET_VALUE
         @disk_resize = nil if @disk_resize == UNSET_VALUE
         @extra_qemu_args = [] if @extra_qemu_args == UNSET_VALUE
         @extra_netdev_args = nil if @extra_netdev_args == UNSET_VALUE
@@ -115,6 +125,38 @@ module VagrantPlugins
         # errors = _detected_errors
         errors = []
         { "QEMU Provider" => errors }
+      end
+
+      private
+
+      # Normalized architecture of the host running QEMU. Apple Silicon Ruby
+      # reports "arm64"; everything arm-like maps to "aarch64", else "x86_64".
+      def host_arch
+        RbConfig::CONFIG["host_cpu"] =~ /arm|aarch64/ ? "aarch64" : "x86_64"
+      end
+
+      # Hardware accelerator for the host OS (used only for native virt).
+      def host_accel
+        case RbConfig::CONFIG["host_os"]
+        when /darwin/ then "hvf"
+        when /mswin|mingw|cygwin/ then "whpx"
+        else "kvm"
+        end
+      end
+
+      # QEMU data dir (firmware images). Only actually consumed for aarch64
+      # firmware, but resolved generically: explicit env override, then the
+      # Homebrew prefix, then a per-platform default.
+      def default_qemu_dir(arch)
+        return ENV["QEMU_DIR"] if ENV["QEMU_DIR"]
+        return "#{ENV['HOMEBREW_PREFIX']}/share/qemu" if ENV["HOMEBREW_PREFIX"]
+
+        case RbConfig::CONFIG["host_os"]
+        when /darwin/
+          arch == "aarch64" ? "/opt/homebrew/share/qemu" : "/usr/local/share/qemu"
+        else
+          "/usr/share/qemu"
+        end
       end
     end
   end

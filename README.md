@@ -82,20 +82,20 @@ This provider exposes a few provider-specific configuration options:
 
 * basic
   * `ssh_port` - The SSH port number used to access VM, default: `50022`
-  * `arch` - The architecture of VM, default: `aarch64`
-  * `machine` - The machine type of VM, default: `virt,accel=hvf,highmem=off`
-  * `cpu` - The cpu model of VM, default: `cortex-a72`
+  * `arch` - The architecture of VM, default: auto-detected from the host (`aarch64` on Apple Silicon, `x86_64` on Intel)
+  * `machine` - The machine type of VM, default: auto-detected from host OS + arch. For native virtualization (guest arch == host arch): `virt,highmem=on,accel=hvf` (arm64) / `q35,accel=hvf` (x86_64) on macOS, `accel=kvm` on Linux, `accel=whpx` on Windows. When emulating a non-host arch it uses `accel=tcg`.
+  * `cpu` - The cpu model of VM, default: `host` for native virtualization, `max` when emulating a non-host arch
   * `smp` - The smp setting (Simulate an SMP system with n CPUs) of VM, default: `2`
   * `memory` - The memory setting of VM, default: `4G`
   * `disk_resize` - The target disk size of the primary disk, requires resizing of filesystem inside of VM, default: `nil`.
 * debug/expert
   * `ssh_host` - The SSH IP used to access VM, default: `127.0.0.1`
   * `ssh_auto_correct` - Auto correct port collisions for ssh port, default: `false`
-  * `net_device` - The network device, default: `virtio-net-device`
+  * `net_device` - The network device, default: auto-detected — `virtio-net-device` (arm64 `virt`) or `virtio-net-pci` (x86_64 `q35`)
   * `drive_interface` - The interface type for the main drive, default `virtio`
   * `image_path` - The path (or array of paths) to qcow2 image for box-less VM, default is nil value
   * `qemu_bin` - Path to an alternative QEMU binary, default: autodetected
-  * `qemu_dir` - The path to QEMU's install dir, default: `/opt/homebrew/share/qemu`
+  * `qemu_dir` - The path to QEMU's data/firmware dir. Default resolution order: `ENV["QEMU_DIR"]` → `${HOMEBREW_PREFIX}/share/qemu` → per-host default (`/opt/homebrew/share/qemu` on Apple Silicon, `/usr/local/share/qemu` on Intel macOS, `/usr/share/qemu` on Linux). Only consumed for aarch64 firmware; ignored (and not validated) for x86_64.
   * `extra_qemu_args` - The raw list of additional arguments to pass to QEMU. Use with extreme caution. (see "Force Multicore" below as example)
   * `extra_netdev_args` - extra, comma-separated arguments to pass to the -netdev parameter. Use with caution. (see "Force Local IP" below as example)
   * `extra_drive_args` - Add optional extra arguments to each drive attached, default: `[]`
@@ -181,6 +181,11 @@ end
 ```
 
 4. Work with a x86_64 box (basic config)
+
+On an **Intel Mac** (or Linux x86_64 host) these defaults are now auto-detected,
+so a plain `config.vm.box = "..."` with no provider overrides is usually enough.
+The explicit settings below are only needed to **emulate** x86_64 on an Apple
+Silicon host (cross-arch → TCG):
 
 ```
 Vagrant.configure(2) do |config|
@@ -506,14 +511,16 @@ If you get this error when running `vagrant up`
 
 ### 4. The box you're using with the QEMU provider ('default') is invalid
 
-This may cause by invalid default qemu dir (`/opt/homebrew/share/qemu`).
-
-You can find the correct one by:
+`qemu_dir` is auto-detected (Homebrew prefix / per-host default) and is only
+needed for **aarch64** firmware — x86_64 boots on SeaBIOS and no longer
+validates it. If detection still picks the wrong path for an aarch64 box
+(e.g. a MacPorts or custom QEMU install), set it explicitly. Find the correct
+one with:
 ```
 echo `brew --prefix`/share/qemu
 ```
 
-And then set it (for example `/usr/local/share/qemu`) in the `Vagrantfile` as:
+Then either export `QEMU_DIR` / `HOMEBREW_PREFIX`, or set it in the `Vagrantfile`:
 ```
 config.vm.provider "qemu" do |qe|
   qe.qemu_dir = "/usr/local/share/qemu"

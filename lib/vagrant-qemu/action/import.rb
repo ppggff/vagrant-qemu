@@ -61,12 +61,17 @@ module VagrantPlugins
             @logger.info("Found box image path: #{img_info}")
           end
 
+          # qemu_dir holds the firmware images, which are only consumed for the
+          # aarch64 target (see driver.rb). x86_64 boots on SeaBIOS and never
+          # touches qemu_dir, so don't let a missing dir block it.
           qemu_dir = Pathname.new(env[:machine].provider_config.qemu_dir)
-          if !qemu_dir.directory?
-            @logger.error("Invalid qemu dir: #{qemu_dir}")
-            raise Errors::ConfigError, err: "Invalid qemu dir: #{qemu_dir}"
-          else
-            @logger.info("Found qemu dir: #{qemu_dir}")
+          if env[:machine].provider_config.arch == "aarch64"
+            if !qemu_dir.directory?
+              @logger.error("Invalid qemu dir: #{qemu_dir}")
+              raise Errors::ConfigError, err: "Invalid qemu dir: #{qemu_dir}"
+            else
+              @logger.info("Found qemu dir: #{qemu_dir}")
+            end
           end
 
           env[:ui].output("Importing a QEMU instance")
