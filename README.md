@@ -105,6 +105,7 @@ This provider exposes a few provider-specific configuration options:
   * `firmware_format` - The format of aarch64 firmware images (`edk2-aarch64-code.fd` and `edk2-arm-vars.fd`) loaded from `qemu_dir`, default: `raw`
   * `other_default` - The other default arguments used by this plugin, default: `%W(-parallel null -monitor none -display none -vga none)`
   * `extra_image_opts` - Options passed via `-o` to `qemu-img` when the base qcow2 images are created, default: `[]`
+  * `graceful_timeout` - Seconds to wait for the guest to shut down on `vagrant halt` before the QEMU process is force-killed, default: `60`
 * advanced networking (requires `advanced_network = true`)
   * `advanced_network` - Enable dual-NIC advanced networking with `private_network` support, default: `false`
   * `net_mode` - Network backend: `:auto` (detect by platform), `:vmnet_shared`, `:vmnet_host`, `:vmnet_bridged` (macOS), `:tap` (Linux), `:socket` (cross-platform), default: `:auto`
@@ -313,7 +314,7 @@ See the [QEMU Documentation](https://www.qemu.org/docs/master/devel/multiple-iot
 
 12. Advanced networking with private_network
 
-Uses QEMU's native vmnet.framework on macOS (requires sudo), TAP on Linux, or socket multicast on other platforms. The plugin creates two NICs: NIC 0 (user-mode for SSH and port forwarding) and NIC 1 (platform backend for VM networking). Cloud-init network-config is automatically generated to assign the static IP.
+Uses QEMU's native vmnet.framework on macOS (requires sudo), TAP on Linux, or socket multicast on other platforms. The plugin creates two NICs: NIC 0 (user-mode for SSH and port forwarding) and NIC 1 (platform backend for VM networking). The static IP is delivered via a cloud-init NoCloud seed ISO that the plugin builds and attaches automatically; the NICs are matched by MAC address, never by interface order.
 
 ```ruby
 Vagrant.configure("2") do |config|
@@ -328,17 +329,20 @@ end
 ```
 
 Notes:
-* The guest image must support cloud-init for the static IP to be configured automatically
-* On macOS, vmnet requires running QEMU with `sudo` (or the `com.apple.vm.networking` entitlement)
+* The guest image must include cloud-init, otherwise the static IP is silently not applied
+* On macOS, vmnet requires running QEMU with `sudo` (or the `com.apple.vm.networking` entitlement); the plugin warns when this is likely to fail
 * Without `advanced_network = true`, the `private_network` configuration is ignored with a warning
-* When only one NIC is needed (no `private_network`), cloud-init is not used, avoiding compatibility issues
+* When only one NIC is needed (no `private_network`), no cloud-init seed is attached, avoiding compatibility issues
+* Combining `advanced_network` with `config.vm.cloud_init` is supported: the plugin merges your user-data and the generated network-config into a single NoCloud seed
+* The Linux `:tap` backend expects a pre-created tap device attached to a bridge, e.g.:
+  `sudo ip tuntap add tap0 mode tap && sudo ip link set tap0 master br0 && sudo ip link set tap0 up`
 
 Platform support:
 
 | Platform | Backend | Host ↔ VM | VM ↔ VM | External dependency |
 |----------|---------|:---------:|:-------:|:-------------------:|
-| macOS    | vmnet-shared/host/bridged | Yes | Yes | None (QEMU >= 7.0) |
-| Linux    | TAP + bridge | Yes | Yes | None (`ip` command) |
+| macOS    | vmnet-shared/host/bridged | Yes | Yes | None (QEMU >= 7.0, sudo/entitlement) |
+| Linux    | TAP + bridge | Yes | Yes | Pre-created tap device + bridge (`ip` command) |
 | Windows  | socket multicast | No (use port forwarding) | Yes | None |
 
 ## Debug
@@ -428,11 +432,15 @@ bundle exec rake spec:unit
 # Acceptance tests (mock QEMU, no real VM)
 bundle exec rake spec:acceptance
 
-# End-to-end tests (requires QEMU and a box image)
+# End-to-end tests (requires QEMU and a box image). e2e exercises the
+# INSTALLED plugin — rebuild and reinstall first (the suite fails fast on
+# a version mismatch):
+bundle exec rake build
+vagrant plugin install ./pkg/vagrant-qemu-<version>.gem
 TEST_QEMU=1 bundle exec rake spec:e2e
 
-# End-to-end with vmnet (requires sudo + macOS)
-TEST_VMNET=1 bundle exec rake spec:e2e
+# End-to-end with vmnet (requires sudo + macOS; needs an aarch64 cloud-init box)
+TEST_QEMU=1 TEST_VMNET=1 TEST_BOX_CLOUDINIT=perk/ubuntu-2204-arm64 sudo -E bundle exec rake spec:e2e
 
 # All tests
 bundle exec rake spec

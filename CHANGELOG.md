@@ -100,3 +100,22 @@
 * Add `extra_image_opts` to customize image creation
 * Add support for cloud-init and disks
 * Add support for resizing disk on vm setup
+
+# 0.4.0 (2026-06-12)
+
+* Advanced networking (opt-in, `advanced_network = true`): dual-NIC `private_network`
+  support via vmnet (macOS), TAP (Linux), or socket multicast, with deterministic
+  MAC addresses; static IP delivered through a plugin-built cloud-init NoCloud
+  seed ISO (MAC-matched, requires cloud-init in the guest). When
+  `config.vm.cloud_init` is also set, its user-data and the generated
+  network-config are merged into a single seed
+* Fix SSH port not updated after forwarded-port collision auto-correction
+* Persist only needed runtime state in options.yml; harden YAML loading
+  (`safe_load`); `vagrant halt` reads back the persisted control_port
+* Graceful shutdown on halt with configurable `graceful_timeout` (default 60s),
+  force kill as fallback
+* Validate the QEMU binary exists before starting the VM
+* Destroy failures now surface the underlying error and preserve the machine ID
+* Warn when private_network is configured without `advanced_network`, when the
+  network backend needs sudo, and when other unsupported network types are used
+* Add test suite: unit + acceptance + e2e (`rake spec:unit|acceptance|e2e`)
