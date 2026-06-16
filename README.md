@@ -527,6 +527,16 @@ config.vm.provider "qemu" do |qe|
 end
 ```
 
+### 5. `conflicting dependencies logger (= 1.6.0) and logger (= 1.6.1)` when installing the plugin
+
+This is a Vagrant 2.4.2 packaging bug (bundled `logger` gem version conflict),
+not a problem with this plugin — see
+[hashicorp/vagrant#13534](https://github.com/hashicorp/vagrant/issues/13534).
+Upgrade Vagrant to **2.4.3 or newer** (the Homebrew cask may lag; install the
+official build from [vagrantup.com](https://www.vagrantup.com/downloads) if
+needed). Do **not** work around it by pinning `logger` in a Gemfile — that tends
+to deepen the conflict.
+
 ## TODO
 
 * Support NFS shared folder
