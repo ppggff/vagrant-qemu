@@ -212,10 +212,27 @@ module VagrantPlugins
       end
 
       def stop(options)
-        if running?
-          send_powerdown(with_persisted_control_port(options))
-          wait_for_shutdown(options[:graceful_timeout] || 60)
-        end
+        return unless running?
+
+        opts = with_persisted_control_port(options)
+        timeout = options[:graceful_timeout] || 60
+
+        # 1. ACPI power button (graceful). Only works if a live guest OS is
+        #    there to act on it -- e.g. NOT after `systemctl halt`, which leaves
+        #    QEMU running with a halted, unresponsive guest.
+        send_monitor(opts, "system_powerdown")
+        return unless still_running_after?(timeout)
+
+        # 2. Powerdown didn't take. Ask QEMU itself to quit: it stops the VM,
+        #    flushes and closes the qcow2 images, then exits cleanly. Does not
+        #    depend on the guest, only on the monitor being reachable.
+        @logger.warn("VM did not power down within #{timeout}s; sending 'quit' to QEMU")
+        send_monitor(opts, "quit")
+        return unless still_running_after?(timeout)
+
+        # 3. Last resort: SIGKILL the QEMU process (no flush/cleanup).
+        @logger.warn("VM still running after 'quit'; forcing kill")
+        force_kill
       end
 
       private
@@ -232,35 +249,37 @@ module VagrantPlugins
         options.merge(:control_port => persisted[:control_port])
       end
 
-      def send_powerdown(options)
+      # Send a single QEMU monitor command over the control channel (TCP
+      # control_port if set, else the unix monitor socket). Best-effort: the
+      # socket may already be gone (e.g. QEMU exited from a prior command), so
+      # connection errors are swallowed.
+      def send_monitor(options, command)
         if !options[:control_port].nil?
           Socket.tcp("localhost", options[:control_port], connect_timeout: 5) do |sock|
-            sock.print "system_powerdown\n"
+            sock.print "#{command}\n"
             sock.close_write
             sock.read rescue nil
           end
         else
-          id_tmp_dir = @tmp_dir.join(@vm_id)
-          unix_socket_path = id_tmp_dir.join("qemu_socket").to_s
+          unix_socket_path = @tmp_dir.join(@vm_id).join("qemu_socket").to_s
           Socket.unix(unix_socket_path) do |sock|
-            sock.print "system_powerdown\n"
+            sock.print "#{command}\n"
             sock.close_write
             sock.read rescue nil
           end
         end
+      rescue => e
+        @logger.debug("monitor command '#{command}' failed: #{e}") if @logger
       end
 
-      def wait_for_shutdown(timeout)
+      # Poll for up to `timeout` seconds. Return false as soon as the VM has
+      # stopped; return true if it is still running when the timeout elapses.
+      def still_running_after?(timeout)
         timeout.times do
-          return unless running?
+          return false unless running?
           sleep 1
         end
-
-        # Still running after timeout, force kill
-        if running?
-          @logger.warn("VM did not shut down within #{timeout}s, forcing kill")
-          force_kill
-        end
+        running?
       end
 
       def force_kill

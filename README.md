@@ -105,7 +105,7 @@ This provider exposes a few provider-specific configuration options:
   * `firmware_format` - The format of aarch64 firmware images (`edk2-aarch64-code.fd` and `edk2-arm-vars.fd`) loaded from `qemu_dir`, default: `raw`
   * `other_default` - The other default arguments used by this plugin, default: `%W(-parallel null -monitor none -display none -vga none)`
   * `extra_image_opts` - Options passed via `-o` to `qemu-img` when the base qcow2 images are created, default: `[]`
-  * `graceful_timeout` - Seconds to wait for the guest to shut down on `vagrant halt` before the QEMU process is force-killed, default: `60`
+  * `graceful_timeout` - Seconds to wait at each `vagrant halt` stage before escalating, default: `60`. Halt sends ACPI `system_powerdown`, waits up to this long, then sends QEMU's `quit` monitor command (a clean shutdown that flushes and closes the disk images), waits again, and finally SIGKILLs QEMU as a last resort — so halt still completes even when the guest was already halted from inside (e.g. `sudo systemctl halt`), where `system_powerdown` is a no-op
 * advanced networking (requires `advanced_network = true`)
   * `advanced_network` - Enable dual-NIC advanced networking with `private_network` support, default: `false`
   * `net_mode` - Network backend: `:auto` (detect by platform), `:vmnet_shared`, `:vmnet_host`, `:vmnet_bridged` (macOS), `:tap` (Linux), `:socket` (QEMU `socket` netdev — multicast or point-to-point, see `socket_opts`), default: `:auto`
