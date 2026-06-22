@@ -368,7 +368,13 @@ end
 
 Notes:
 * The guest image must include cloud-init, otherwise the static IP is silently not applied
-* On macOS, vmnet requires running QEMU with `sudo` (or the `com.apple.vm.networking` entitlement); the plugin warns when this is likely to fail
+* On macOS, vmnet requires root: run `sudo vagrant up` (and the other lifecycle commands such as `halt`/`reload`/`destroy`), because the plugin launches QEMU as a child of the Vagrant process and does not elevate it on its own. The plugin warns when vmnet is selected and Vagrant is not running as root.
+* Side effect of running under `sudo`: QEMU and everything it writes become **root-owned** — the per-VM data directory (`.vagrant/machines/<name>/qemu/` in your project) and any box Vagrant downloads while elevated (`~/.vagrant.d/boxes/<box>/`). A later command run **without** `sudo` then fails with `EACCES` — e.g. a plain `vagrant status`/`up`, an unprivileged test run, or switching to a rootless backend — often on the box's `box_update_check` file. To handle it, either keep using `sudo` consistently for that environment, or restore ownership:
+  ```sh
+  sudo chown -R "$(id -un)":staff ~/.vagrant.d/boxes/<box> .vagrant
+  ```
+  Pre-adding boxes as your normal user (`vagrant box add <box>`) before the first `sudo vagrant up` also avoids the box ending up root-owned.
+* To avoid root (and this side effect) entirely on macOS, use [`socket_vmnet`](https://github.com/lima-vm/socket_vmnet) — a small root helper daemon you install once, which QEMU then connects to as a normal user (the approach Lima/Colima/minikube take). The `com.apple.developer.networking.vmnet` entitlement could also bypass root in principle, but it is a *restricted* Apple entitlement that requires an Apple-provisioned signing certificate and cannot be ad-hoc / self-signed onto Homebrew's QEMU, so it is not a practical option for individual users.
 * Without `advanced_network = true`, the `private_network` configuration is ignored with a warning
 * When only one NIC is needed (no `private_network`), no cloud-init seed is attached, avoiding compatibility issues
 * Combining `advanced_network` with `config.vm.cloud_init` is supported: the plugin merges your user-data and the generated network-config into a single NoCloud seed
@@ -381,7 +387,7 @@ Platform support:
 
 | Platform | Backend (`net_mode`) | Host ↔ VM | VM ↔ VM | Root? | External dependency |
 |----------|---------|:---------:|:-------:|:-----:|:-------------------:|
-| macOS    | `:vmnet_shared`/`_host`/`_bridged` | Yes | Yes | sudo/entitlement | None (QEMU >= 7.0) |
+| macOS    | `:vmnet_shared`/`_host`/`_bridged` | Yes | Yes | sudo (or socket_vmnet) | None (QEMU >= 7.0) |
 | macOS    | `:socket` (`listen`/`connect`) | No (use port forwarding) | Yes (2 VMs) | No | None |
 | Linux    | `:tap` + bridge | Yes | Yes | sudo | Pre-created tap device + bridge (`ip` command) |
 | Linux    | `:socket` (`mcast`) | No (use port forwarding) | Yes | No | None |
