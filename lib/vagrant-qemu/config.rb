@@ -32,7 +32,13 @@ module VagrantPlugins
       attr_accessor :net_mode           # :auto, :vmnet_shared, :vmnet_host, :vmnet_bridged, :tap, :socket
       attr_accessor :vmnet_interface    # physical interface for vmnet-bridged (e.g. "en0")
       attr_accessor :tap_device         # tap device name for Linux tap backend
-      attr_accessor :mcast_addr         # multicast address for socket backend
+      attr_accessor :mcast_addr         # convenience shortcut for the :socket backend's multicast address
+      # Raw QEMU `socket` netdev options for the :socket backend; whatever you
+      # set is emitted verbatim as `-netdev socket,id=netN,<socket_opts>`, e.g.
+      # "mcast=230.0.0.1:1234", "listen=:1234", "connect=127.0.0.1:1234".
+      # The mode (multicast vs point-to-point listen/connect) and any roles are
+      # entirely the user's choice. Overrides mcast_addr when set.
+      attr_accessor :socket_opts
 
       def initialize
         @ssh_host = UNSET_VALUE
@@ -64,6 +70,7 @@ module VagrantPlugins
         @vmnet_interface = UNSET_VALUE
         @tap_device = UNSET_VALUE
         @mcast_addr = UNSET_VALUE
+        @socket_opts = UNSET_VALUE
       end
 
       #-------------------------------------------------------------------
@@ -115,6 +122,7 @@ module VagrantPlugins
         @vmnet_interface = "en0" if @vmnet_interface == UNSET_VALUE
         @tap_device = nil if @tap_device == UNSET_VALUE
         @mcast_addr = nil if @mcast_addr == UNSET_VALUE
+        @socket_opts = nil if @socket_opts == UNSET_VALUE
 
         # TODO better error msg
         @ssh_port = Integer(@ssh_port)

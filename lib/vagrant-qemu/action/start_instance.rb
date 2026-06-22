@@ -41,6 +41,7 @@ module VagrantPlugins
             :vmnet_interface => config.vmnet_interface,
             :tap_device => config.tap_device,
             :mcast_addr => config.mcast_addr,
+            :socket_opts => config.socket_opts,
           }
 
           # Pick up SSH port that may have been corrected by HandleForwardedPortCollisions
