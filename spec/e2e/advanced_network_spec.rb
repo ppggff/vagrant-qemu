@@ -14,6 +14,7 @@ describe "advanced networking end-to-end", :requires_vmnet do
     File.write(@work_dir.join("Vagrantfile"), <<~RUBY)
       Vagrant.configure("2") do |config|
         config.vm.box = "#{test_box_cloudinit}"
+        config.vm.box_check_update = false
         config.vm.synced_folder ".", "/vagrant", disabled: true
         config.vm.network "private_network", ip: "192.168.105.10"
         config.vm.provider "qemu" do |qe|
@@ -33,6 +34,7 @@ describe "advanced networking end-to-end", :requires_vmnet do
     File.write(@work_dir.join("Vagrantfile"), <<~RUBY)
       Vagrant.configure("2") do |config|
         config.vm.box = "#{test_box_cloudinit}"
+        config.vm.box_check_update = false
         config.vm.synced_folder ".", "/vagrant", disabled: true
         config.vm.network "private_network", ip: "192.168.105.11"
         config.vm.provider "qemu" do |qe|
@@ -55,6 +57,7 @@ describe "advanced networking end-to-end", :requires_vmnet do
     File.write(@work_dir.join("Vagrantfile"), <<~RUBY)
       Vagrant.configure("2") do |config|
         config.vm.box = "#{test_box_cloudinit}"
+        config.vm.box_check_update = false
         config.vm.synced_folder ".", "/vagrant", disabled: true
         config.vm.network "private_network", ip: "192.168.105.12", mac: "#{user_mac}"
         config.vm.provider "qemu" do |qe|
@@ -77,6 +80,7 @@ describe "advanced networking end-to-end", :requires_vmnet do
       Vagrant.configure("2") do |config|
         config.vm.define "vm1" do |c|
           c.vm.box = "#{test_box_cloudinit}"
+          c.vm.box_check_update = false
           c.vm.synced_folder ".", "/vagrant", disabled: true
           c.vm.network "private_network", ip: "192.168.105.20"
           c.vm.provider "qemu" do |qe|
@@ -89,6 +93,7 @@ describe "advanced networking end-to-end", :requires_vmnet do
 
         config.vm.define "vm2" do |c|
           c.vm.box = "#{test_box_cloudinit}"
+          c.vm.box_check_update = false
           c.vm.synced_folder ".", "/vagrant", disabled: true
           c.vm.network "private_network", ip: "192.168.105.21"
           c.vm.provider "qemu" do |qe|

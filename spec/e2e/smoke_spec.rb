@@ -9,6 +9,7 @@ describe "smoke test: full VM lifecycle", :requires_qemu do
       File.write(@work_dir.join("Vagrantfile"), <<~RUBY)
         Vagrant.configure("2") do |config|
           config.vm.box = "#{test_box}"
+          config.vm.box_check_update = false
           config.vm.synced_folder ".", "/vagrant", disabled: true
           config.vm.provider "qemu" do |qe|
             qe.memory = "2G"

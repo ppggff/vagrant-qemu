@@ -14,6 +14,7 @@ describe "forwarded ports end-to-end", :requires_qemu do
     File.write(@work_dir.join("Vagrantfile"), <<~RUBY)
       Vagrant.configure("2") do |config|
         config.vm.box = "#{test_box}"
+        config.vm.box_check_update = false
         config.vm.synced_folder ".", "/vagrant", disabled: true
         config.vm.network "forwarded_port", guest: 8000, host: 18000
         config.vm.provider "qemu" do |qe|
@@ -49,6 +50,7 @@ describe "forwarded ports end-to-end", :requires_qemu do
       File.write(@work_dir.join("Vagrantfile"), <<~RUBY)
         Vagrant.configure("2") do |config|
           config.vm.box = "#{test_box}"
+        config.vm.box_check_update = false
           config.vm.synced_folder ".", "/vagrant", disabled: true
           config.vm.network "forwarded_port", guest: 80, host: 28000, auto_correct: true
           config.vm.provider "qemu" do |qe|
@@ -71,6 +73,7 @@ describe "forwarded ports end-to-end", :requires_qemu do
       Vagrant.configure("2") do |config|
         config.vm.define "vm1" do |c|
           c.vm.box = "#{test_box}"
+          c.vm.box_check_update = false
           c.vm.synced_folder ".", "/vagrant", disabled: true
           c.vm.provider "qemu" do |qe|
             qe.memory = "2G"
@@ -80,6 +83,7 @@ describe "forwarded ports end-to-end", :requires_qemu do
 
         config.vm.define "vm2" do |c|
           c.vm.box = "#{test_box}"
+          c.vm.box_check_update = false
           c.vm.synced_folder ".", "/vagrant", disabled: true
           c.vm.provider "qemu" do |qe|
             qe.memory = "2G"

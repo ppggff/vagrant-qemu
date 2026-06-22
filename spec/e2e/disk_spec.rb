@@ -14,6 +14,7 @@ describe "extra disk attachment end-to-end", :requires_qemu do
     File.write(@work_dir.join("Vagrantfile"), <<~RUBY)
       Vagrant.configure("2") do |config|
         config.vm.box = "#{test_box}"
+        config.vm.box_check_update = false
         config.vm.synced_folder ".", "/vagrant", disabled: true
         config.vm.disk :disk, name: "extra", size: "1GB"
         config.vm.provider "qemu" do |qe|
