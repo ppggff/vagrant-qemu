@@ -101,6 +101,14 @@
 * Add support for cloud-init and disks
 * Add support for resizing disk on vm setup
 
+# 0.4.1 (2026-06-22)
+
+* `vagrant halt` now reaps QEMU even when the guest was already halted from
+  inside (e.g. `sudo systemctl halt`), where the ACPI `system_powerdown` is a
+  no-op. Halt escalates: `system_powerdown` -> wait `graceful_timeout` -> QEMU
+  `quit` monitor command (clean: flushes and closes the disk images) -> wait
+  `graceful_timeout` -> SIGKILL as a last resort (#79)
+
 # 0.4.0 (2026-06-12)
 
 * Advanced networking (opt-in, `advanced_network = true`): dual-NIC `private_network`
