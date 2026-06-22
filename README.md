@@ -39,7 +39,7 @@ Others:
 * Basic suport to forwarded ports, see [vagrant doc](https://www.vagrantup.com/docs/networking/forwarded_ports) for details
 * Support Cloud-init, see [vagrant doc](https://developer.hashicorp.com/vagrant/docs/cloud-init/usage) for details
 * Support Disks, see [vagrant doc](https://developer.hashicorp.com/vagrant/docs/disks/usage) for details
-* Advanced networking (opt-in): dual-NIC with `private_network` support via QEMU native vmnet (macOS), TAP (Linux), or socket multicast (cross-platform)
+* Advanced networking (opt-in): dual-NIC with `private_network` support via QEMU native vmnet (macOS), TAP (Linux), or a `socket` netdev — multicast (Linux/Windows) or point-to-point listen/connect (no root, works on macOS)
 
 ## Usage
 
@@ -108,10 +108,11 @@ This provider exposes a few provider-specific configuration options:
   * `graceful_timeout` - Seconds to wait for the guest to shut down on `vagrant halt` before the QEMU process is force-killed, default: `60`
 * advanced networking (requires `advanced_network = true`)
   * `advanced_network` - Enable dual-NIC advanced networking with `private_network` support, default: `false`
-  * `net_mode` - Network backend: `:auto` (detect by platform), `:vmnet_shared`, `:vmnet_host`, `:vmnet_bridged` (macOS), `:tap` (Linux), `:socket` (cross-platform), default: `:auto`
+  * `net_mode` - Network backend: `:auto` (detect by platform), `:vmnet_shared`, `:vmnet_host`, `:vmnet_bridged` (macOS), `:tap` (Linux), `:socket` (QEMU `socket` netdev — multicast or point-to-point, see `socket_opts`), default: `:auto`
   * `vmnet_interface` - Physical interface for vmnet-bridged mode, default: `en0`
   * `tap_device` - TAP device name for Linux tap backend, default: `nil` (uses `tap0`)
-  * `mcast_addr` - Multicast address for socket backend, default: `nil` (uses `230.0.0.1:1234`)
+  * `mcast_addr` - Convenience shortcut for the `:socket` backend's multicast address, default: `nil` (uses `230.0.0.1:1234`)
+  * `socket_opts` - Raw options for the `:socket` netdev, emitted verbatim as `-netdev socket,id=netN,<socket_opts>`. You pick the mode: `"mcast=230.0.0.1:1234"` (multicast, N-way), `"listen=:1234"` / `"connect=127.0.0.1:1234"` (point-to-point; you decide which VM listens and which connects — the no-root, macOS-friendly path). Overrides `mcast_addr`. Default: `nil` (falls back to multicast)
 
 ### Usage
 
@@ -319,7 +320,39 @@ See the [QEMU Documentation](https://www.qemu.org/docs/master/devel/multiple-iot
 
 12. Advanced networking with private_network
 
-Uses QEMU's native vmnet.framework on macOS (requires sudo), TAP on Linux, or socket multicast on other platforms. The plugin creates two NICs: NIC 0 (user-mode for SSH and port forwarding) and NIC 1 (platform backend for VM networking). The static IP is delivered via a cloud-init NoCloud seed ISO that the plugin builds and attaches automatically; the NICs are matched by MAC address, never by interface order.
+Pick a backend with `net_mode`: QEMU's native vmnet.framework on macOS (requires sudo), TAP on Linux, or the `socket` netdev. The `:socket` backend is a thin wrapper around QEMU's `socket` netdev — you choose the mode in `socket_opts`: `mcast=` (multicast, N-way, Linux/Windows) or `listen=`/`connect=` (point-to-point, no root, works on macOS). The plugin creates two NICs: NIC 0 (user-mode for SSH and port forwarding) and NIC 1 (platform backend for VM networking). The static IP is delivered via a cloud-init NoCloud seed ISO that the plugin builds and attaches automatically; the NICs are matched by MAC address, never by interface order.
+
+For VM-to-VM networking on macOS without sudo, use `:socket` with a `listen`/`connect` pair — you decide which VM listens and which connects:
+
+```ruby
+Vagrant.configure("2") do |config|
+  PORT = 12399
+  # vm1 listens; define it first so it is up before vm2 connects.
+  config.vm.define "vm1" do |c|
+    c.vm.box = "perk/ubuntu-2204-arm64"  # an aarch64 cloud-init box
+    c.vm.network "private_network", ip: "192.168.105.51"
+    c.vm.provider "qemu" do |qe|
+      qe.advanced_network = true
+      qe.net_mode = :socket
+      qe.socket_opts = "listen=127.0.0.1:#{PORT}"
+      qe.ssh_auto_correct = true
+    end
+  end
+  # vm2 connects to vm1.
+  config.vm.define "vm2" do |c|
+    c.vm.box = "perk/ubuntu-2204-arm64"
+    c.vm.network "private_network", ip: "192.168.105.52"
+    c.vm.provider "qemu" do |qe|
+      qe.advanced_network = true
+      qe.net_mode = :socket
+      qe.socket_opts = "connect=127.0.0.1:#{PORT}"
+      qe.ssh_auto_correct = true
+    end
+  end
+end
+```
+
+A single VM with a static IP (vmnet is the default backend on macOS when `net_mode` is `:auto`):
 
 ```ruby
 Vagrant.configure("2") do |config|
@@ -341,14 +374,20 @@ Notes:
 * Combining `advanced_network` with `config.vm.cloud_init` is supported: the plugin merges your user-data and the generated network-config into a single NoCloud seed
 * The Linux `:tap` backend expects a pre-created tap device attached to a bridge, e.g.:
   `sudo ip tuntap add tap0 mode tap && sudo ip link set tap0 master br0 && sudo ip link set tap0 up`
+* `socket_opts = "mcast=..."` gives N-way VM-to-VM on Linux/Windows, but does **not** work on macOS: QEMU binds the netdev socket to the multicast group address, which the Darwin socket stack refuses to send from (`EADDRNOTAVAIL`). On macOS use a `listen`/`connect` pair (no root) or vmnet (sudo).
+* `socket_opts = "listen=..."` / `"connect=..."` is a point-to-point QEMU TCP link and connects **exactly two** VMs (QEMU's listening socket accepts a single connection — it is not a hub). You choose which VM listens and which connects. The listener must be running before the connector starts, so define the listener first and bring the environment up together (`vagrant up`); starting a connector alone, or reloading the listener, drops the link.
 
 Platform support:
 
-| Platform | Backend | Host ↔ VM | VM ↔ VM | External dependency |
-|----------|---------|:---------:|:-------:|:-------------------:|
-| macOS    | vmnet-shared/host/bridged | Yes | Yes | None (QEMU >= 7.0, sudo/entitlement) |
-| Linux    | TAP + bridge | Yes | Yes | Pre-created tap device + bridge (`ip` command) |
-| Windows  | socket multicast | No (use port forwarding) | Yes | None |
+| Platform | Backend (`net_mode`) | Host ↔ VM | VM ↔ VM | Root? | External dependency |
+|----------|---------|:---------:|:-------:|:-----:|:-------------------:|
+| macOS    | `:vmnet_shared`/`_host`/`_bridged` | Yes | Yes | sudo/entitlement | None (QEMU >= 7.0) |
+| macOS    | `:socket` (`listen`/`connect`) | No (use port forwarding) | Yes (2 VMs) | No | None |
+| Linux    | `:tap` + bridge | Yes | Yes | sudo | Pre-created tap device + bridge (`ip` command) |
+| Linux    | `:socket` (`mcast`) | No (use port forwarding) | Yes | No | None |
+| Windows  | `:socket` (`mcast`) | No (use port forwarding) | Yes | No | None |
+
+(`socket_opts = "mcast=..."` is not usable on macOS — see the note above; use a `listen`/`connect` pair there.)
 
 ## Debug
 

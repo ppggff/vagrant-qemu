@@ -104,11 +104,18 @@
 # 0.4.0 (2026-06-12)
 
 * Advanced networking (opt-in, `advanced_network = true`): dual-NIC `private_network`
-  support via vmnet (macOS), TAP (Linux), or socket multicast, with deterministic
-  MAC addresses; static IP delivered through a plugin-built cloud-init NoCloud
-  seed ISO (MAC-matched, requires cloud-init in the guest). When
+  support via vmnet (macOS), TAP (Linux), or the QEMU `socket` netdev, with
+  deterministic MAC addresses; static IP delivered through a plugin-built cloud-init
+  NoCloud seed ISO (MAC-matched, requires cloud-init in the guest). When
   `config.vm.cloud_init` is also set, its user-data and the generated
   network-config are merged into a single seed
+* `net_mode = :socket` is now a thin wrapper around QEMU's `socket` netdev: the new
+  `socket_opts` option is emitted verbatim, so you pick the mode yourself —
+  `"mcast=230.0.0.1:1234"` (multicast, N-way) or `"listen=:1234"` / `"connect=host:1234"`
+  (point-to-point, no root, works on macOS where multicast does not — QEMU binds the
+  socket to the multicast group address, which Darwin rejects for sending). For
+  listen/connect you decide which VM listens and which connects (it is a 1:1 link,
+  not a hub). `mcast_addr` remains as a shortcut for the multicast address
 * Fix SSH port not updated after forwarded-port collision auto-correction
 * Persist only needed runtime state in options.yml; harden YAML loading
   (`safe_load`); `vagrant halt` reads back the persisted control_port
