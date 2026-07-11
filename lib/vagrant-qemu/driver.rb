@@ -474,6 +474,25 @@ module VagrantPlugins
       def disk_dir
           @data_dir.join(@vm_id)
       end
+
+      # Ordered paths of the box's disk overlays, reconstructed by index to
+      # match start/import (glob only counts; names rebuild by index so a
+      # two-digit suffix can't sort ahead of a single digit).
+      def box_disk_paths
+        id_dir = disk_dir
+        count = id_dir.glob("linked-box*.img").count
+        (0...count).map do |i|
+          suffix = i > 0 ? "-#{i}" : ""
+          id_dir.join("linked-box#{suffix}.img")
+        end
+      end
+
+      # Flatten a box disk overlay into a standalone qcow2 at dst. convert reads
+      # the whole backing chain and writes a fresh file, so the source overlay
+      # (the live VM disk) is never modified.
+      def convert_box_disk(src, dst)
+        execute("qemu-img", "convert", "-O", "qcow2", src.to_s, dst.to_s)
+      end
     end
   end
 end
