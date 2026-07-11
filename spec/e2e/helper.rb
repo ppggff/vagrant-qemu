@@ -73,6 +73,18 @@ module E2EHelper
     run_vagrant_cmd("status", "--machine-readable", cwd: cwd, timeout: 15)
   end
 
+  def vagrant_package(cwd, output:, timeout: 600)
+    run_vagrant_cmd("package", "--output", output.to_s, cwd: cwd, timeout: timeout)
+  end
+
+  def vagrant_box_add(name, path, cwd:, timeout: 120)
+    run_vagrant_cmd("box", "add", name, path.to_s, "--force", cwd: cwd, timeout: timeout)
+  end
+
+  def vagrant_box_remove(name, cwd:, timeout: 60)
+    run_vagrant_cmd("box", "remove", name, "--force", cwd: cwd, timeout: timeout)
+  end
+
   private
 
   def run_vagrant_cmd(*args, cwd:, timeout: 120)
