@@ -76,7 +76,7 @@ describe "vagrant package end-to-end", :requires_qemu do
         config.vm.box = "#{test_box}"
         config.vm.box_check_update = false
         config.vm.synced_folder ".", "/vagrant", disabled: true
-        config.vm.network "forwarded_port", guest: 80, host: 8080
+        config.vm.network "forwarded_port", guest: 80, host: 8080, auto_correct: true
         config.vm.provider "qemu" do |qe|
           qe.memory = "2G"
         end
