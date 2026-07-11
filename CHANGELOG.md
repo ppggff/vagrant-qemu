@@ -140,3 +140,17 @@
 * Warn when private_network is configured without `advanced_network`, when the
   network backend needs sudo, and when other unsupported network types are used
 * Add test suite: unit + acceptance + e2e (`rake spec:unit|acceptance|e2e`)
+
+# 0.5.0 (2026-07-11)
+
+* `vagrant package` is now supported: export a running QEMU VM into a
+  distributable libvirt-format box. The box disk is flattened from its qcow2
+  overlay into a standalone qcow2 with `qemu-img convert` (the live VM disk is
+  never modified). A single-disk VM produces `box.img`; a multi-disk VM
+  produces `box_1.img`..`box_N.img` plus a `disks[]` entry in `metadata.json`.
+  `metadata.json` is written with `provider: libvirt` / `format: qcow2` /
+  `virtual_size`, and a minimal default Vagrantfile declaring the box `arch` is
+  bundled. `--output`/`--include`/`--info`/`--vagrantfile` are handled by the
+  core packaging middleware. Environment-specific state — networking, MAC,
+  additional disks, DVDs/cloud-init seed ISOs, and firmware — is intentionally
+  not baked into the box.
