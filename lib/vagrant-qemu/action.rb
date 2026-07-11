@@ -9,8 +9,21 @@ module VagrantPlugins
       include Vagrant::Action::Builtin
 
       def self.action_package
-        lambda do |env|
-          raise Errors::NotSupportedError
+        Vagrant::Action::Builder.new.tap do |b|
+          b.use ConfigValidate
+          b.use Call, IsState, :not_created do |env, b2|
+            if env[:result]
+              b2.use MessageNotCreated
+              next
+            end
+
+            b2.use Vagrant::Action::General::PackageSetupFolders
+            b2.use Vagrant::Action::General::PackageSetupFiles
+            b2.use StopInstance
+            b2.use Vagrant::Action::General::Package
+            b2.use Export
+            b2.use PackageVagrantfile
+          end
         end
       end
 
@@ -173,6 +186,8 @@ module VagrantPlugins
       autoload :Import, action_root.join("import")
       autoload :StartInstance, action_root.join("start_instance")
       autoload :StopInstance, action_root.join("stop_instance")
+      autoload :Export, action_root.join("export")
+      autoload :PackageVagrantfile, action_root.join("package_vagrantfile")
       autoload :Destroy, action_root.join("destroy")
       autoload :CloudInitNetwork, action_root.join("cloud_init_network")
       autoload :TimedProvision, action_root.join("timed_provision") # some plugins now expect this action to exist
