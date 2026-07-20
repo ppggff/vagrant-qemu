@@ -38,6 +38,18 @@ module VagrantPlugins
       class DestroyError < VagrantQEMUError
         error_key(:destroy_error)
       end
+
+      class SocketVmnetNotMacos < VagrantQEMUError
+        error_key(:socket_vmnet_not_macos)
+      end
+
+      class SocketVmnetSocketNotFound < VagrantQEMUError
+        error_key(:socket_vmnet_socket_not_found)
+      end
+
+      class SocketVmnetClientNotFound < VagrantQEMUError
+        error_key(:socket_vmnet_client_not_found)
+      end
     end
   end
 end

@@ -63,14 +63,14 @@ describe VagrantPlugins::QEMU::Network, ".qemu_supports_stream?" do
     expect(described_class.qemu_supports_stream?("qemu-x")).to eq false
   end
 
-  it "is false when the probe exits non-zero" do
+  it "is nil (unknown) when the probe exits non-zero" do
     stub_probe(stdout: "stream\n", exit_code: 1)
-    expect(described_class.qemu_supports_stream?("qemu-x")).to eq false
+    expect(described_class.qemu_supports_stream?("qemu-x")).to be_nil
   end
 
-  it "is false (not an exception) when the probe cannot run" do
+  it "is nil (not an exception) when the probe cannot run" do
     allow(::Vagrant::Util::Subprocess).to receive(:execute).and_raise(StandardError.new("boom"))
-    expect(described_class.qemu_supports_stream?("qemu-x")).to eq false
+    expect(described_class.qemu_supports_stream?("qemu-x")).to be_nil
   end
 
   it "caches the result per binary (probes once)" do

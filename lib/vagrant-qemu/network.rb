@@ -47,12 +47,15 @@ module VagrantPlugins
       # instead of going through the socket_vmnet_client wrapper.
       #
       # Probes `<qemu> -M none -netdev help` and looks for a `stream` line on
-      # stdout. Cached per binary. A probe that can't run returns false, but
-      # the driver treats that rare case optimistically (defaults to stream) --
-      # here we only report what the probe actually showed.
+      # stdout. Cached per binary.
+      #
+      # Tri-state so the driver can honor the design's fallback direction:
+      #   true  -- probe ran, stream present  -> use stream
+      #   false -- probe ran, stream absent    -> use the wrapper (old QEMU)
+      #   nil   -- probe could not run (rare)  -> driver defaults to stream
       #
       # @param qemu_binary [String] path/name of the qemu-system-* binary
-      # @return [Boolean]
+      # @return [Boolean, nil]
       def self.qemu_supports_stream?(qemu_binary)
         @stream_support ||= {}
         return @stream_support[qemu_binary] if @stream_support.key?(qemu_binary)
@@ -60,9 +63,9 @@ module VagrantPlugins
         result =
           begin
             out = ::Vagrant::Util::Subprocess.execute(qemu_binary, "-M", "none", "-netdev", "help")
-            out.exit_code == 0 && out.stdout.lines.any? { |l| l.strip == "stream" }
+            out.exit_code == 0 ? out.stdout.lines.any? { |l| l.strip == "stream" } : nil
           rescue => e
-            false
+            nil
           end
         @stream_support[qemu_binary] = result
       end

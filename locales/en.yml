@@ -84,3 +84,24 @@ en:
 
         The machine ID has been preserved. Fix the underlying issue and
         run `vagrant destroy` again.
+      socket_vmnet_not_macos: |-
+        net_mode = :socket_vmnet is only supported on macOS (it relies on
+        the socket_vmnet daemon and vmnet.framework).
+      socket_vmnet_socket_not_found: |-
+        The socket_vmnet daemon socket was not found:
+
+          %{socket}
+
+        Install and start the daemon first, e.g.:
+          brew install socket_vmnet
+          sudo brew services start socket_vmnet
+
+        Or point qe.socket_vmnet_socket at the daemon's socket path.
+      socket_vmnet_client_not_found: |-
+        This QEMU lacks the native `stream` netdev (QEMU < 7.2), so the
+        socket_vmnet_client wrapper is required but was not found:
+
+          %{client}
+
+        Install socket_vmnet (which ships the client), upgrade QEMU to >= 7.2,
+        or point qe.socket_vmnet_client at the wrapper binary.
