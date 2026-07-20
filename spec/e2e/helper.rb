@@ -130,7 +130,7 @@ RSpec.configure do |config|
   # e2e runs the INSTALLED plugin (see note above) — fail fast when it
   # doesn't match the source tree, instead of silently testing a stale gem.
   config.before(:suite) do
-    next unless ENV["TEST_QEMU"] || ENV["TEST_VMNET"]
+    next unless ENV["TEST_QEMU"] || ENV["TEST_VMNET"] || ENV["TEST_SOCKET_VMNET"]
 
     require "vagrant-qemu/version"
     expected = VagrantPlugins::QEMU::VERSION
