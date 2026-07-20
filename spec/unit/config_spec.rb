@@ -140,4 +140,38 @@ describe VagrantPlugins::QEMU::Config do
       expect(config.net_mode).to eq :vmnet_shared
     end
   end
+
+  describe "socket_vmnet paths" do
+    it "defaults to Apple Silicon Homebrew prefix when HOMEBREW_PREFIX is unset" do
+      allow(ENV).to receive(:[]).and_call_original
+      allow(ENV).to receive(:[]).with("HOMEBREW_PREFIX").and_return(nil)
+      config = finalized(host_arch: "aarch64", host_accel: "hvf")
+      expect(config.socket_vmnet_socket).to eq "/opt/homebrew/var/run/socket_vmnet"
+      expect(config.socket_vmnet_client).to eq "/opt/homebrew/opt/socket_vmnet/bin/socket_vmnet_client"
+    end
+
+    it "defaults to Intel Homebrew prefix when HOMEBREW_PREFIX is unset" do
+      allow(ENV).to receive(:[]).and_call_original
+      allow(ENV).to receive(:[]).with("HOMEBREW_PREFIX").and_return(nil)
+      config = finalized(host_arch: "x86_64", host_accel: "hvf")
+      expect(config.socket_vmnet_socket).to eq "/usr/local/var/run/socket_vmnet"
+    end
+
+    it "derives from HOMEBREW_PREFIX when set" do
+      allow(ENV).to receive(:[]).and_call_original
+      allow(ENV).to receive(:[]).with("HOMEBREW_PREFIX").and_return("/opt/hb")
+      config = finalized(host_arch: "aarch64", host_accel: "hvf")
+      expect(config.socket_vmnet_socket).to eq "/opt/hb/var/run/socket_vmnet"
+      expect(config.socket_vmnet_client).to eq "/opt/hb/opt/socket_vmnet/bin/socket_vmnet_client"
+    end
+
+    it "preserves user-specified paths" do
+      config = described_class.new
+      config.socket_vmnet_socket = "/tmp/sv.sock"
+      config.socket_vmnet_client = "/tmp/sv_client"
+      config.finalize!
+      expect(config.socket_vmnet_socket).to eq "/tmp/sv.sock"
+      expect(config.socket_vmnet_client).to eq "/tmp/sv_client"
+    end
+  end
 end

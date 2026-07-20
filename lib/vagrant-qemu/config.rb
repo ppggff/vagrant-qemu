@@ -29,7 +29,7 @@ module VagrantPlugins
       attr_accessor :graceful_timeout  # seconds to wait for guest shutdown before force kill
       # Advanced networking options
       attr_accessor :advanced_network   # bool, opt-in for dual-NIC setup
-      attr_accessor :net_mode           # :auto, :vmnet_shared, :vmnet_host, :vmnet_bridged, :tap, :socket
+      attr_accessor :net_mode           # :auto, :vmnet_shared, :vmnet_host, :vmnet_bridged, :tap, :socket, :socket_vmnet
       attr_accessor :vmnet_interface    # physical interface for vmnet-bridged (e.g. "en0")
       attr_accessor :tap_device         # tap device name for Linux tap backend
       attr_accessor :mcast_addr         # convenience shortcut for the :socket backend's multicast address
@@ -39,6 +39,10 @@ module VagrantPlugins
       # The mode (multicast vs point-to-point listen/connect) and any roles are
       # entirely the user's choice. Overrides mcast_addr when set.
       attr_accessor :socket_opts
+      # socket_vmnet backend (macOS): the daemon's unix socket, and the client
+      # wrapper used only on QEMU without the native `stream` netdev.
+      attr_accessor :socket_vmnet_socket
+      attr_accessor :socket_vmnet_client
 
       def initialize
         @ssh_host = UNSET_VALUE
@@ -71,6 +75,8 @@ module VagrantPlugins
         @tap_device = UNSET_VALUE
         @mcast_addr = UNSET_VALUE
         @socket_opts = UNSET_VALUE
+        @socket_vmnet_socket = UNSET_VALUE
+        @socket_vmnet_client = UNSET_VALUE
       end
 
       #-------------------------------------------------------------------
@@ -123,6 +129,8 @@ module VagrantPlugins
         @tap_device = nil if @tap_device == UNSET_VALUE
         @mcast_addr = nil if @mcast_addr == UNSET_VALUE
         @socket_opts = nil if @socket_opts == UNSET_VALUE
+        @socket_vmnet_socket = "#{homebrew_prefix}/var/run/socket_vmnet" if @socket_vmnet_socket == UNSET_VALUE
+        @socket_vmnet_client = "#{homebrew_prefix}/opt/socket_vmnet/bin/socket_vmnet_client" if @socket_vmnet_client == UNSET_VALUE
 
         # TODO better error msg
         @ssh_port = Integer(@ssh_port)
@@ -150,6 +158,14 @@ module VagrantPlugins
         when /mswin|mingw|cygwin/ then "whpx"
         else "kvm"
         end
+      end
+
+      # Homebrew install prefix for socket_vmnet default paths: env override,
+      # else the per-arch default (Apple Silicon vs Intel). socket_vmnet is
+      # macOS-only, so a non-macOS value is never actually consumed.
+      def homebrew_prefix
+        return ENV["HOMEBREW_PREFIX"] if ENV["HOMEBREW_PREFIX"]
+        host_arch == "aarch64" ? "/opt/homebrew" : "/usr/local"
       end
 
       # QEMU data dir (firmware images). Only actually consumed for aarch64
