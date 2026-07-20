@@ -320,7 +320,7 @@ See the [QEMU Documentation](https://www.qemu.org/docs/master/devel/multiple-iot
 
 12. Advanced networking with private_network
 
-Pick a backend with `net_mode`: QEMU's native vmnet.framework on macOS (requires sudo), TAP on Linux, or the `socket` netdev. The `:socket` backend is a thin wrapper around QEMU's `socket` netdev — you choose the mode in `socket_opts`: `mcast=` (multicast, N-way, Linux/Windows) or `listen=`/`connect=` (point-to-point, no root, works on macOS). The plugin creates two NICs: NIC 0 (user-mode for SSH and port forwarding) and NIC 1 (platform backend for VM networking). The static IP is delivered via a cloud-init NoCloud seed ISO that the plugin builds and attaches automatically; the NICs are matched by MAC address, never by interface order.
+Pick a backend with `net_mode`: QEMU's native vmnet.framework on macOS (`:vmnet_shared`/`_host`/`_bridged`, requires sudo), `:socket_vmnet` on macOS (full host↔VM and VM↔VM **without** sudo, via the [socket_vmnet](https://github.com/lima-vm/socket_vmnet) daemon), TAP on Linux, or the `socket` netdev. The `:socket` backend is a thin wrapper around QEMU's `socket` netdev — you choose the mode in `socket_opts`: `mcast=` (multicast, N-way, Linux/Windows) or `listen=`/`connect=` (point-to-point, no root, works on macOS). The plugin creates two NICs: NIC 0 (user-mode for SSH and port forwarding) and NIC 1 (platform backend for VM networking). The static IP is delivered via a cloud-init NoCloud seed ISO that the plugin builds and attaches automatically; the NICs are matched by MAC address, never by interface order.
 
 For VM-to-VM networking on macOS without sudo, use `:socket` with a `listen`/`connect` pair — you decide which VM listens and which connects:
 
@@ -366,6 +366,38 @@ Vagrant.configure("2") do |config|
 end
 ```
 
+Full networking on macOS **without sudo** with `:socket_vmnet` (host↔VM and VM↔VM, static IP):
+
+```ruby
+Vagrant.configure("2") do |config|
+  config.vm.box = "perk/ubuntu-2204-arm64"  # an aarch64 cloud-init box
+  config.vm.network "private_network", ip: "192.168.105.10"
+
+  config.vm.provider "qemu" do |qe|
+    qe.advanced_network = true
+    qe.net_mode = :socket_vmnet
+    # qe.socket_vmnet_socket = "/opt/homebrew/var/run/socket_vmnet"  # default (Homebrew prefix)
+  end
+end
+```
+
+Set up the daemon once (root, one-time), then run `vagrant up` as your normal user:
+
+```sh
+brew install socket_vmnet
+# Reserve a static-IP range so cloud-init IPs don't collide with the DHCP pool:
+sudo brew services start socket_vmnet   # or run it with explicit flags, e.g.:
+# sudo socket_vmnet --vmnet-gateway=192.168.105.1 --vmnet-dhcp-end=192.168.105.100 \
+#     /opt/homebrew/var/run/socket_vmnet
+```
+
+The `private_network` IP must sit inside the daemon's subnet (`--vmnet-gateway`, default
+`192.168.105.1/24`) and, to avoid a DHCP clash, above `--vmnet-dhcp-end`. Unlike the native vmnet
+backends, `:socket_vmnet` cannot tell the daemon which subnet to use — the daemon's launch flags are
+authoritative, so align the IP to them. On QEMU ≥ 7.2 the plugin connects to the daemon directly
+(`-netdev stream`); on older QEMU it automatically falls back to the `socket_vmnet_client` wrapper
+(configurable via `qe.socket_vmnet_client`).
+
 Notes:
 * The guest image must include cloud-init, otherwise the static IP is silently not applied
 * On macOS, vmnet requires root: run `sudo vagrant up` (and the other lifecycle commands such as `halt`/`reload`/`destroy`), because the plugin launches QEMU as a child of the Vagrant process and does not elevate it on its own. The plugin warns when vmnet is selected and Vagrant is not running as root.
@@ -374,7 +406,7 @@ Notes:
   sudo chown -R "$(id -un)":staff ~/.vagrant.d/boxes/<box> .vagrant
   ```
   Pre-adding boxes as your normal user (`vagrant box add <box>`) before the first `sudo vagrant up` also avoids the box ending up root-owned.
-* To avoid root (and this side effect) entirely on macOS, use [`socket_vmnet`](https://github.com/lima-vm/socket_vmnet) — a small root helper daemon you install once, which QEMU then connects to as a normal user (the approach Lima/Colima/minikube take). The `com.apple.developer.networking.vmnet` entitlement could also bypass root in principle, but it is a *restricted* Apple entitlement that requires an Apple-provisioned signing certificate and cannot be ad-hoc / self-signed onto Homebrew's QEMU, so it is not a practical option for individual users.
+* To avoid root (and this side effect) entirely on macOS, use `net_mode = :socket_vmnet` (see the example above): the [`socket_vmnet`](https://github.com/lima-vm/socket_vmnet) daemon holds the root vmnet membership and QEMU connects to it as a normal user (the approach Lima/Colima/minikube take), so `vagrant up` and the other lifecycle commands need no sudo. The `com.apple.developer.networking.vmnet` entitlement could also bypass root in principle, but it is a *restricted* Apple entitlement that requires an Apple-provisioned signing certificate and cannot be ad-hoc / self-signed onto Homebrew's QEMU, so it is not a practical option for individual users.
 * Without `advanced_network = true`, the `private_network` configuration is ignored with a warning
 * When only one NIC is needed (no `private_network`), no cloud-init seed is attached, avoiding compatibility issues
 * Combining `advanced_network` with `config.vm.cloud_init` is supported: the plugin merges your user-data and the generated network-config into a single NoCloud seed
@@ -387,7 +419,8 @@ Platform support:
 
 | Platform | Backend (`net_mode`) | Host ↔ VM | VM ↔ VM | Root? | External dependency |
 |----------|---------|:---------:|:-------:|:-----:|:-------------------:|
-| macOS    | `:vmnet_shared`/`_host`/`_bridged` | Yes | Yes | sudo (or socket_vmnet) | None (QEMU >= 7.0) |
+| macOS    | `:vmnet_shared`/`_host`/`_bridged` | Yes | Yes | sudo | None (QEMU >= 7.0) |
+| macOS    | `:socket_vmnet` | Yes | Yes | No | socket_vmnet daemon (`brew install socket_vmnet`) |
 | macOS    | `:socket` (`listen`/`connect`) | No (use port forwarding) | Yes (2 VMs) | No | None |
 | Linux    | `:tap` + bridge | Yes | Yes | sudo | Pre-created tap device + bridge (`ip` command) |
 | Linux    | `:socket` (`mcast`) | No (use port forwarding) | Yes | No | None |
