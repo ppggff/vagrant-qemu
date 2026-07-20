@@ -64,7 +64,7 @@ module VagrantPlugins
           begin
             out = ::Vagrant::Util::Subprocess.execute(qemu_binary, "-M", "none", "-netdev", "help")
             out.exit_code == 0 ? out.stdout.lines.any? { |l| l.strip == "stream" } : nil
-          rescue => e
+          rescue StandardError
             nil
           end
         @stream_support[qemu_binary] = result
