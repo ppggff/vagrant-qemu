@@ -15,6 +15,15 @@ module VagrantPlugins
         def requires_sudo?
           false
         end
+
+        # Tokens to prepend to the QEMU launch command (a wrapper program).
+        # Empty by default; only socket_vmnet's wrapper route is non-empty.
+        # The driver applies this under the same gate as build_netdev_args.
+        # @param options [Hash] provider config options
+        # @return [Array<String>]
+        def launch_prefix(options)
+          []
+        end
       end
     end
   end

@@ -2,6 +2,7 @@ require_relative "network/base"
 require_relative "network/vmnet"
 require_relative "network/tap"
 require_relative "network/socket"
+require_relative "network/socket_vmnet"
 
 module VagrantPlugins
   module QEMU
@@ -9,7 +10,7 @@ module VagrantPlugins
       # Select the appropriate network backend based on net_mode and platform.
       #
       # @param net_mode [Symbol] :auto, :vmnet_shared, :vmnet_host,
-      #   :vmnet_bridged, :tap, :socket
+      #   :vmnet_bridged, :tap, :socket, :socket_vmnet
       # @return [Base] a network backend instance
       def self.backend_for(net_mode)
         case net_mode
@@ -19,6 +20,8 @@ module VagrantPlugins
           Tap.new
         when :socket
           Socket.new
+        when :socket_vmnet
+          SocketVmnet.new
         when :auto
           auto_detect
         else
@@ -37,6 +40,31 @@ module VagrantPlugins
         else
           Socket.new
         end
+      end
+
+      # Whether the QEMU binary has the native `stream` netdev (QEMU >= 7.2),
+      # so socket_vmnet can connect to the daemon's unix socket directly
+      # instead of going through the socket_vmnet_client wrapper.
+      #
+      # Probes `<qemu> -M none -netdev help` and looks for a `stream` line on
+      # stdout. Cached per binary. A probe that can't run returns false, but
+      # the driver treats that rare case optimistically (defaults to stream) --
+      # here we only report what the probe actually showed.
+      #
+      # @param qemu_binary [String] path/name of the qemu-system-* binary
+      # @return [Boolean]
+      def self.qemu_supports_stream?(qemu_binary)
+        @stream_support ||= {}
+        return @stream_support[qemu_binary] if @stream_support.key?(qemu_binary)
+
+        result =
+          begin
+            out = ::Vagrant::Util::Subprocess.execute(qemu_binary, "-M", "none", "-netdev", "help")
+            out.exit_code == 0 && out.stdout.lines.any? { |l| l.strip == "stream" }
+          rescue => e
+            false
+          end
+        @stream_support[qemu_binary] = result
       end
 
       # Generate a deterministic MAC address from vm_id and NIC index.

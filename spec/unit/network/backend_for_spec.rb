@@ -21,6 +21,10 @@ describe VagrantPlugins::QEMU::Network, ".backend_for" do
     expect(described_class.backend_for(:socket)).to be_a(VagrantPlugins::QEMU::Network::Socket)
   end
 
+  it "returns SocketVmnet for :socket_vmnet" do
+    expect(described_class.backend_for(:socket_vmnet)).to be_a(VagrantPlugins::QEMU::Network::SocketVmnet)
+  end
+
   it "raises ConfigError for unknown net_mode" do
     expect { described_class.backend_for(:bogus) }.to raise_error(VagrantPlugins::QEMU::Errors::ConfigError)
   end
