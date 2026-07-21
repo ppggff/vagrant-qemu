@@ -108,11 +108,13 @@ This provider exposes a few provider-specific configuration options:
   * `graceful_timeout` - Seconds to wait at each `vagrant halt` stage before escalating, default: `60`. Halt sends ACPI `system_powerdown`, waits up to this long, then sends QEMU's `quit` monitor command (a clean shutdown that flushes and closes the disk images), waits again, and finally SIGKILLs QEMU as a last resort — so halt still completes even when the guest was already halted from inside (e.g. `sudo systemctl halt`), where `system_powerdown` is a no-op
 * advanced networking (requires `advanced_network = true`)
   * `advanced_network` - Enable dual-NIC advanced networking with `private_network` support, default: `false`
-  * `net_mode` - Network backend: `:auto` (detect by platform), `:vmnet_shared`, `:vmnet_host`, `:vmnet_bridged` (macOS), `:tap` (Linux), `:socket` (QEMU `socket` netdev — multicast or point-to-point, see `socket_opts`), default: `:auto`
+  * `net_mode` - Network backend: `:auto` (detect by platform), `:vmnet_shared`, `:vmnet_host`, `:vmnet_bridged` (macOS, sudo), `:socket_vmnet` (macOS, no sudo — via the socket_vmnet daemon), `:tap` (Linux), `:socket` (QEMU `socket` netdev — multicast or point-to-point, see `socket_opts`), default: `:auto`
   * `vmnet_interface` - Physical interface for vmnet-bridged mode, default: `en0`
   * `tap_device` - TAP device name for Linux tap backend, default: `nil` (uses `tap0`)
   * `mcast_addr` - Convenience shortcut for the `:socket` backend's multicast address, default: `nil` (uses `230.0.0.1:1234`)
   * `socket_opts` - Raw options for the `:socket` netdev, emitted verbatim as `-netdev socket,id=netN,<socket_opts>`. You pick the mode: `"mcast=230.0.0.1:1234"` (multicast, N-way), `"listen=:1234"` / `"connect=127.0.0.1:1234"` (point-to-point; you decide which VM listens and which connects — the no-root, macOS-friendly path). Overrides `mcast_addr`. Default: `nil` (falls back to multicast)
+  * `socket_vmnet_socket` - Path to the socket_vmnet daemon's unix socket, used by the `:socket_vmnet` backend, default: `<homebrew-prefix>/var/run/socket_vmnet` (`HOMEBREW_PREFIX` env, else `/opt/homebrew` on Apple Silicon, `/usr/local` on Intel)
+  * `socket_vmnet_client` - Path to the `socket_vmnet_client` wrapper, used only on QEMU older than 7.2 (which lacks the native `stream` netdev), default: `<homebrew-prefix>/opt/socket_vmnet/bin/socket_vmnet_client`
 
 ### Usage
 
