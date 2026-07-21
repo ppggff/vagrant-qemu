@@ -140,7 +140,7 @@ module VagrantPlugins
               # (the static-IP cloud-init seed is built and attached by the
               # CloudInitNetwork action, not here)
               backend = Network.backend_for(options[:net_mode])
-              preflight_socket_vmnet(options, qemu_binary) if options[:net_mode] == :socket_vmnet
+              backend.preflight!(options, qemu_binary)
               cmd += %W(-device #{options[:net_device]},netdev=net1,mac=#{mac1})
               cmd += backend.build_netdev_args("net1", options)
               # launch_prefix is applied under the same gate as build_netdev_args
@@ -245,28 +245,6 @@ module VagrantPlugins
       end
 
       private
-
-      # Resolve the socket_vmnet route and fail fast on missing preconditions.
-      # Sets options[:use_stream]: true when the qemu binary has the native
-      # `stream` netdev, false when it definitively lacks it, and true when the
-      # probe couldn't determine (rare) -- stream needs no extra dependency.
-      def preflight_socket_vmnet(options, qemu_binary)
-        raise Errors::SocketVmnetNotMacos unless RbConfig::CONFIG["host_os"] =~ /darwin/
-
-        options[:use_stream] = Network.qemu_supports_stream?(qemu_binary) != false
-
-        socket = options[:socket_vmnet_socket]
-        unless socket && File.exist?(socket)
-          raise Errors::SocketVmnetSocketNotFound, socket: socket
-        end
-
-        return if options[:use_stream]
-
-        client = options[:socket_vmnet_client]
-        unless client && (Vagrant::Util::Which.which(client) || File.executable?(client))
-          raise Errors::SocketVmnetClientNotFound, client: client
-        end
-      end
 
       # Prefer the control_port the VM was actually started with (persisted
       # in options.yml) so halt still works after a Vagrantfile edit.

@@ -24,6 +24,14 @@ module VagrantPlugins
         def launch_prefix(options)
           []
         end
+
+        # Validate preconditions and resolve any backend-specific options
+        # before the command is built. No-op by default; the driver calls it
+        # under the same gate as build_netdev_args.
+        # @param options [Hash] provider config options (may be mutated)
+        # @param qemu_binary [String] the resolved qemu-system-* binary
+        def preflight!(options, qemu_binary)
+        end
       end
     end
   end

@@ -34,12 +34,76 @@ describe VagrantPlugins::QEMU::Network::SocketVmnet do
   it "never requires sudo (the daemon holds the root vmnet membership)" do
     expect(subject.requires_sudo?).to eq false
   end
+
+  describe "#preflight!" do
+    around(:each) { |ex| with_temp_dir { |dir| @dir = dir; ex.run } }
+
+    def opts(overrides = {})
+      sock = @dir.join("sock").to_s
+      FileUtils.touch(sock)
+      client = @dir.join("client").to_s
+      FileUtils.touch(client)
+      File.chmod(0o755, client)
+      { socket_vmnet_socket: sock, socket_vmnet_client: client }.merge(overrides)
+    end
+
+    before do
+      allow(RbConfig::CONFIG).to receive(:[]).and_call_original
+      allow(RbConfig::CONFIG).to receive(:[]).with("host_os").and_return("darwin23")
+    end
+
+    it "sets use_stream=true when the probe reports stream" do
+      allow(VagrantPlugins::QEMU::Network).to receive(:qemu_supports_stream?).and_return(true)
+      o = opts
+      subject.preflight!(o, "qemu-x")
+      expect(o[:use_stream]).to eq true
+    end
+
+    it "sets use_stream=false when the probe definitively lacks stream" do
+      allow(VagrantPlugins::QEMU::Network).to receive(:qemu_supports_stream?).and_return(false)
+      o = opts
+      subject.preflight!(o, "qemu-x")
+      expect(o[:use_stream]).to eq false
+    end
+
+    it "defaults use_stream=true when the probe is unknown (nil)" do
+      allow(VagrantPlugins::QEMU::Network).to receive(:qemu_supports_stream?).and_return(nil)
+      o = opts
+      subject.preflight!(o, "qemu-x")
+      expect(o[:use_stream]).to eq true
+    end
+
+    it "raises on non-macOS hosts" do
+      allow(RbConfig::CONFIG).to receive(:[]).with("host_os").and_return("linux-gnu")
+      expect { subject.preflight!(opts, "qemu-x") }
+        .to raise_error(VagrantPlugins::QEMU::Errors::SocketVmnetNotMacos)
+    end
+
+    it "raises when the daemon socket is missing" do
+      allow(VagrantPlugins::QEMU::Network).to receive(:qemu_supports_stream?).and_return(true)
+      expect { subject.preflight!(opts(socket_vmnet_socket: "/nope/sock"), "qemu-x") }
+        .to raise_error(VagrantPlugins::QEMU::Errors::SocketVmnetSocketNotFound)
+    end
+
+    it "raises on the wrapper route when the client is missing" do
+      allow(VagrantPlugins::QEMU::Network).to receive(:qemu_supports_stream?).and_return(false)
+      allow(::Vagrant::Util::Which).to receive(:which).and_return(nil)
+      expect { subject.preflight!(opts(socket_vmnet_client: "/nope/client"), "qemu-x") }
+        .to raise_error(VagrantPlugins::QEMU::Errors::SocketVmnetClientNotFound)
+    end
+  end
 end
 
-describe VagrantPlugins::QEMU::Network::Base, "#launch_prefix" do
-  it "defaults to an empty prefix (other backends launch qemu directly)" do
+describe VagrantPlugins::QEMU::Network::Base do
+  it "#launch_prefix defaults to an empty prefix (other backends launch qemu directly)" do
     expect(described_class.new.launch_prefix({})).to eq []
     expect(VagrantPlugins::QEMU::Network::Vmnet.new.launch_prefix({})).to eq []
+  end
+
+  it "#preflight! is a no-op by default (other backends need no preconditions)" do
+    o = { some: "opt" }
+    expect { described_class.new.preflight!(o, "qemu-x") }.not_to raise_error
+    expect(o).to eq({ some: "opt" })
   end
 end
 
