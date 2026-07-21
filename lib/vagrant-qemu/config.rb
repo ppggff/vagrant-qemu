@@ -160,12 +160,12 @@ module VagrantPlugins
         end
       end
 
-      # Homebrew install prefix for socket_vmnet default paths: env override,
-      # else the per-arch default (Apple Silicon vs Intel). socket_vmnet is
-      # macOS-only, so a non-macOS value is never actually consumed.
-      def homebrew_prefix
-        return ENV["HOMEBREW_PREFIX"] if ENV["HOMEBREW_PREFIX"]
-        host_arch == "aarch64" ? "/opt/homebrew" : "/usr/local"
+      # Homebrew install prefix: env override, else the per-arch default
+      # (Apple Silicon vs Intel). Defaults to the host arch (socket_vmnet paths
+      # are host-side); default_qemu_dir passes the guest arch to keep its
+      # firmware-dir behavior.
+      def homebrew_prefix(arch = host_arch)
+        ENV["HOMEBREW_PREFIX"] || (arch == "aarch64" ? "/opt/homebrew" : "/usr/local")
       end
 
       # QEMU data dir (firmware images). Only actually consumed for aarch64
@@ -177,7 +177,7 @@ module VagrantPlugins
 
         case RbConfig::CONFIG["host_os"]
         when /darwin/
-          arch == "aarch64" ? "/opt/homebrew/share/qemu" : "/usr/local/share/qemu"
+          "#{homebrew_prefix(arch)}/share/qemu"
         else
           "/usr/share/qemu"
         end
