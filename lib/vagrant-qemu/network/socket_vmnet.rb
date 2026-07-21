@@ -15,7 +15,7 @@ module VagrantPlugins
       #     <sock>`, which hands the connection in on fd 3.
       #
       # build_netdev_args and launch_prefix are driven by the same use_stream
-      # so they never disagree (see design ADR-0001).
+      # so they never disagree.
       class SocketVmnet < Base
         def build_netdev_args(id, options)
           if options[:use_stream]
@@ -30,10 +30,6 @@ module VagrantPlugins
           return [] if options[:use_stream]
 
           %W(#{options[:socket_vmnet_client]} #{options[:socket_vmnet_socket]})
-        end
-
-        def requires_sudo?
-          false
         end
       end
     end

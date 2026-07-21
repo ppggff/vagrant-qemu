@@ -220,28 +220,6 @@ module VagrantPlugins
         end
       end
 
-      # Resolve the socket_vmnet route and fail fast on missing preconditions.
-      # Sets options[:use_stream]: true when the qemu binary has the native
-      # `stream` netdev, false when it definitively lacks it, and true when the
-      # probe couldn't determine (rare) -- stream needs no extra dependency.
-      def preflight_socket_vmnet(options, qemu_binary)
-        raise Errors::SocketVmnetNotMacos unless RbConfig::CONFIG["host_os"] =~ /darwin/
-
-        options[:use_stream] = Network.qemu_supports_stream?(qemu_binary) != false
-
-        socket = options[:socket_vmnet_socket]
-        unless socket && File.exist?(socket)
-          raise Errors::SocketVmnetSocketNotFound, socket: socket
-        end
-
-        return if options[:use_stream]
-
-        client = options[:socket_vmnet_client]
-        unless client && (Vagrant::Util::Which.which(client) || File.executable?(client))
-          raise Errors::SocketVmnetClientNotFound, client: client
-        end
-      end
-
       def stop(options)
         return unless running?
 
@@ -267,6 +245,28 @@ module VagrantPlugins
       end
 
       private
+
+      # Resolve the socket_vmnet route and fail fast on missing preconditions.
+      # Sets options[:use_stream]: true when the qemu binary has the native
+      # `stream` netdev, false when it definitively lacks it, and true when the
+      # probe couldn't determine (rare) -- stream needs no extra dependency.
+      def preflight_socket_vmnet(options, qemu_binary)
+        raise Errors::SocketVmnetNotMacos unless RbConfig::CONFIG["host_os"] =~ /darwin/
+
+        options[:use_stream] = Network.qemu_supports_stream?(qemu_binary) != false
+
+        socket = options[:socket_vmnet_socket]
+        unless socket && File.exist?(socket)
+          raise Errors::SocketVmnetSocketNotFound, socket: socket
+        end
+
+        return if options[:use_stream]
+
+        client = options[:socket_vmnet_client]
+        unless client && (Vagrant::Util::Which.which(client) || File.executable?(client))
+          raise Errors::SocketVmnetClientNotFound, client: client
+        end
+      end
 
       # Prefer the control_port the VM was actually started with (persisted
       # in options.yml) so halt still works after a Vagrantfile edit.
