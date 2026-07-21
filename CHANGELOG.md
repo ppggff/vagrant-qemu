@@ -154,3 +154,18 @@
   core packaging middleware. Environment-specific state — networking, MAC,
   additional disks, DVDs/cloud-init seed ISOs, and firmware — is intentionally
   not baked into the box.
+
+# 0.6.0 (2026-07-21)
+
+* `net_mode = :socket_vmnet` adds no-sudo private networking on macOS: the
+  [socket_vmnet](https://github.com/lima-vm/socket_vmnet) daemon holds the root
+  vmnet membership and QEMU connects to it as a normal user, so `vagrant up`
+  and the other lifecycle commands need no sudo. It reuses the advanced-network
+  dual-NIC + cloud-init path — NIC 0 user-mode (SSH + port forwarding), NIC 1
+  on socket_vmnet with the configured static IP — giving host↔VM and VM↔VM
+  connectivity. On QEMU >= 7.2 QEMU connects to the daemon directly
+  (`-netdev stream`); on older QEMU it falls back to the `socket_vmnet_client`
+  wrapper (`-netdev socket,fd=3`), chosen automatically by probing the QEMU
+  binary. New config: `socket_vmnet_socket` and `socket_vmnet_client` (default
+  to the Homebrew prefix). The static IP must fall within the daemon's subnet
+  (`--vmnet-gateway`, default `192.168.105.1/24`); see the README. (#41)
