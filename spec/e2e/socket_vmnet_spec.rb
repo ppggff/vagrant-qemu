@@ -89,4 +89,39 @@ describe "socket_vmnet advanced networking end-to-end", :requires_socket_vmnet d
     expect(result[:exit_code]).to eq 0
     expect(result[:stdout]).to include(" 0% packet loss")
   end
+
+  # On QEMU >= 7.2 the plugin picks the stream route; a shim that hides the
+  # `stream` netdev from the probe forces the wrapper route (socket_vmnet_client
+  # + `-netdev socket,fd=3`) so it too gets exercised end-to-end -- in
+  # particular that the fd-3 convention survives the plugin's ChildProcess
+  # launcher. socket_vmnet_client itself connects on whatever fd `socket()`
+  # returns, so this proves nothing extra is leaked into fd 3.
+  it "wrapper route (forced via a no-stream shim) connects over fd 3" do
+    shim = File.expand_path("support/qemu_no_stream_shim.sh", __dir__)
+    File.write(@work_dir.join("Vagrantfile"), <<~RUBY)
+      Vagrant.configure("2") do |config|
+        config.vm.box = "#{test_box_cloudinit}"
+        config.vm.box_check_update = false
+        config.vm.synced_folder ".", "/vagrant", disabled: true
+        config.vm.network "private_network", ip: "192.168.105.13"
+        config.vm.provider "qemu" do |qe|
+          qe.memory = "2G"
+          qe.advanced_network = true
+          qe.net_mode = :socket_vmnet
+          qe.qemu_bin = "#{shim}"
+        end
+      end
+    RUBY
+
+    vagrant_up(@work_dir)
+
+    # The wrapper route was genuinely taken (not stream): the running QEMU
+    # carries the fd-3 socket netdev, not a stream netdev.
+    qemu_args = `ps -Ao args 2>/dev/null`
+    expect(qemu_args).to include("socket,id=net1,fd=3")
+    expect(qemu_args).not_to include("-netdev stream")
+
+    result = vagrant_ssh(@work_dir, command: "ip addr show")
+    expect(result[:stdout]).to include("192.168.105.13")
+  end
 end
