@@ -24,6 +24,10 @@ module VagrantPlugins
         # user-data seed.
         CORE_SEED_DISK_NAME = "vagrant-cloud_init-disk".freeze
 
+        # Disk name this action gives its own network-only seed (no core
+        # user-data seed present).
+        OWN_SEED_DISK_NAME = "vagrant-qemu-network-disk".freeze
+
         def initialize(app, env)
           @app = app
           @logger = Log4r::Logger.new("vagrant_qemu::action::cloud_init_network")
@@ -55,13 +59,24 @@ module VagrantPlugins
         private
 
         # No core cloud-init seed: build our own network-only seed and attach
-        # it as a fresh :dvd disk.
+        # it as a fresh :dvd disk. This re-runs on every action_start
+        # (including a same-process reload), so a disk already registered
+        # from an earlier run is rebuilt in place rather than re-registered
+        # -- machine.config.vm.disks has no dedup of its own.
         def attach_network_seed(machine, env, pn)
-          iso_path = build_seed(machine, env, pn,
-            user_data: "#cloud-config\n",
-            file_destination: machine.data_dir.join("vagrant-qemu-network.iso"))
+          existing = machine.config.vm.disks.find do |d|
+            d.type == :dvd && d.name == OWN_SEED_DISK_NAME
+          end
 
-          machine.config.vm.disk :dvd, file: iso_path.to_s, name: "vagrant-qemu-network-disk"
+          iso_path = existing ? Pathname.new(existing.file) : machine.data_dir.join("vagrant-qemu-network.iso")
+
+          build_seed(machine, env, pn,
+            user_data: "#cloud-config\n",
+            file_destination: iso_path)
+
+          return if existing
+
+          machine.config.vm.disk :dvd, file: iso_path.to_s, name: OWN_SEED_DISK_NAME
           machine.config.vm.disks.each do |d|
             d.finalize! if d.type == :dvd && d.file == iso_path.to_s
           end

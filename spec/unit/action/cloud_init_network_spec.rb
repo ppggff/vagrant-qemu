@@ -33,8 +33,15 @@ describe VagrantPlugins::QEMU::Action::CloudInitNetwork do
 
     allow(vm_config).to receive(:networks).and_return(networks)
     allow(vm_config).to receive(:cloud_init_configs).and_return([])
-    allow(vm_config).to receive(:disk)
-    allow(vm_config).to receive(:disks).and_return([])
+
+    # Stateful, unlike a plain double: .disk actually appends, so a test can
+    # call the action twice (simulating a same-process reload re-running
+    # action_start) and observe whether registration is idempotent.
+    @disks_registered = []
+    allow(vm_config).to receive(:disks) { @disks_registered }
+    allow(vm_config).to receive(:disk) do |type, **opts|
+      @disks_registered << double("disk_config", type: type, name: opts[:name], file: opts[:file], finalize!: nil)
+    end
 
     allow(host).to receive(:capability?).with(:create_iso).and_return(true)
 
@@ -127,6 +134,14 @@ describe VagrantPlugins::QEMU::Action::CloudInitNetwork do
       run_action
       expect(vm_config).not_to have_received(:disk)
     end
+  end
+
+  it "does not register a second seed disk on a repeated call (same-process reload)" do
+    run_action
+    expect(vm_config.disks.length).to eq(1)
+
+    run_action
+    expect(vm_config.disks.length).to eq(1)
   end
 
   it "raises when the host cannot build ISOs" do
