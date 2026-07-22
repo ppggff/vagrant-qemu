@@ -84,12 +84,17 @@ module VagrantPlugins
         def self.setup_disk(machine, disk)
           disk_dir = machine.provider.driver.disk_dir
           disk_path = disk_dir.join("#{disk.name}.#{disk.disk_ext}")
-          args = ["create", "-f", "qcow2"]
 
           disk_provider_config = disk.provider_config[:qemu] if disk.provider_config
-          args.push(disk_path.to_s)
-          args.push("#{disk.size}")
-          machine.provider.driver.execute("qemu-img", *args)
+
+          # configure_disks re-runs on every action_start (including a
+          # same-process reload); qemu-img create truncates an existing file
+          # unconditionally, so skip it once the disk already exists instead
+          # of silently wiping it. Resizing an existing disk isn't handled.
+          if !disk_path.file?
+            args = ["create", "-f", "qcow2", disk_path.to_s, "#{disk.size}"]
+            machine.provider.driver.execute("qemu-img", *args)
+          end
 
           {UUID: disk.id, Name: disk.name, Path: disk_path.to_s, primary: !!disk.primary}
         end

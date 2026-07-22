@@ -63,4 +63,42 @@ describe VagrantPlugins::QEMU::Cap::Disk, ".configure_disks" do
 
     expect(driver.attached_drives[:disk]).to be_empty
   end
+
+  describe "disk file idempotency (reload must not wipe existing disk data)" do
+    let(:disk_path) { @data_dir.join(vm_id).join("disk1.qcow2") }
+
+    it "does not recreate the qcow2 file when it already exists" do
+      FileUtils.touch(disk_path)
+
+      expect(driver).not_to receive(:execute)
+        .with("qemu-img", "create", "-f", "qcow2", disk_path.to_s, "10G")
+
+      described_class.configure_disks(machine, [disk])
+    end
+
+    it "does not recreate on a second configure_disks call (reload)" do
+      # Simulate the real qemu-img side effect (the outer stub is a no-op),
+      # so the second call's existence check reflects what actually happens.
+      allow(driver).to receive(:execute) do |*args|
+        FileUtils.touch(disk_path) if args[0, 2] == ["qemu-img", "create"]
+      end
+
+      described_class.configure_disks(machine, [disk])
+      expect(File.exist?(disk_path)).to be true
+
+      expect(driver).not_to receive(:execute)
+        .with("qemu-img", "create", "-f", "qcow2", disk_path.to_s, "10G")
+
+      described_class.configure_disks(machine, [disk])
+    end
+
+    it "creates the qcow2 file when it does not exist yet" do
+      expect(File.exist?(disk_path)).to be false
+
+      expect(driver).to receive(:execute)
+        .with("qemu-img", "create", "-f", "qcow2", disk_path.to_s, "10G")
+
+      described_class.configure_disks(machine, [disk])
+    end
+  end
 end
