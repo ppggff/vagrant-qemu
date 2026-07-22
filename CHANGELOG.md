@@ -169,3 +169,20 @@
   binary. New config: `socket_vmnet_socket` and `socket_vmnet_client` (default
   to the Homebrew prefix). The static IP must fall within the daemon's subnet
   (`--vmnet-gateway`, default `192.168.105.1/24`); see the README. (#41)
+
+# 0.6.1 (2026-07-22)
+
+* Fix `vagrant reload` (and any other same-process halt-then-start, e.g. the
+  `vagrant-reload` plugin) failing with a QEMU image write-lock error when a
+  custom disk (`config.vm.disk`) was configured. `configure_disks` re-runs on
+  every `action_start`, but the driver's attached-disk list only ever
+  accumulated, so a reload attached each custom disk twice on the same qemu
+  command line. (#41)
+* Fix `qemu-img create` unconditionally recreating an already-existing custom
+  disk on every `configure_disks` call, which silently wiped the disk's
+  contents on every reload (independent of the bug above — resizing an
+  existing disk to a new configured size still isn't supported).
+* Fix the cloud-init network seed ISO (used by `advanced_network` without a
+  core `cloud_init` user-data config, i.e. the `net_mode` examples above)
+  being re-registered as a duplicate disk on every same-process reload,
+  hitting the same QEMU write-lock error via a different disk.
