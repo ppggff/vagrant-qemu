@@ -186,3 +186,12 @@
   core `cloud_init` user-data config, i.e. the `net_mode` examples above)
   being re-registered as a duplicate disk on every same-process reload,
   hitting the same QEMU write-lock error via a different disk.
+
+# 0.6.2 (2026-07-22)
+
+* Fix the default QEMU args crashing the VM on distros whose qemu-kvm build
+  doesn't include the legacy parallel port device (e.g. Rocky Linux, and
+  likely RHEL and other derivatives). `-parallel null` still instantiates
+  that device, just with its output discarded; `-parallel none` — now the
+  default — skips creating it entirely, matching how the other default args
+  (`-monitor`/`-display`/`-vga`) already disable their optional devices. (#80)
