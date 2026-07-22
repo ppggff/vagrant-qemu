@@ -32,6 +32,11 @@ module VagrantPlugins
         # @param [VagrantPlugins::Kernel_V2::VagrantConfigDisk] defined_disks
         # @return [Hash] configured_disks - A hash of all the current configured disks
         def self.configure_disks(machine, defined_disks)
+          # Vagrant re-invokes this on every action_start (including a
+          # same-process reload), always passing the complete current disk
+          # list -- reset before the empty check so a disk removed from the
+          # Vagrantfile doesn't leave a stale entry attached either.
+          machine.provider.driver.reset_attached_drives!
           return {} if defined_disks.empty?
 
           configured_disks = {disk: [], floppy: [], dvd: []}

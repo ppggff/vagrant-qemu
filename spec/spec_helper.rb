@@ -20,6 +20,7 @@ require "vagrant-qemu/action/start_instance"
 require "vagrant-qemu/action/read_state"
 require "vagrant-qemu/action/stop_instance"
 require "vagrant-qemu/action/prepare_forwarded_port_collision_params"
+require "vagrant-qemu/cap/disk"
 
 RSpec.configure do |config|
   config.expect_with :rspec do |expectations|

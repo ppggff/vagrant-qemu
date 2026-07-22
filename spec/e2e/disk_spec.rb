@@ -32,4 +32,32 @@ describe "extra disk attachment end-to-end", :requires_qemu do
     expect(ssh[:exit_code]).to eq 0
     expect(ssh[:stdout].lines.last.to_s.strip.to_i).to be >= 2
   end
+
+  it "reload with an extra disk does not hit a QEMU image-lock error" do
+    File.write(@work_dir.join("Vagrantfile"), <<~RUBY)
+      Vagrant.configure("2") do |config|
+        config.vm.box = "#{test_box}"
+        config.vm.box_check_update = false
+        config.vm.synced_folder ".", "/vagrant", disabled: true
+        config.vm.disk :disk, name: "extra", size: "1GB"
+        config.vm.provider "qemu" do |qe|
+          qe.memory = "2G"
+        end
+      end
+    RUBY
+
+    result = vagrant_up(@work_dir, timeout: 600)
+    expect(result[:exit_code]).to eq 0
+
+    # This is the exact same-process halt->start path a same-process reload
+    # takes (issue #41: reload used to re-attach the extra disk a second
+    # time, so QEMU refused its own duplicate -drive with a write-lock error).
+    reload = vagrant_reload(@work_dir, timeout: 600)
+    expect(reload[:exit_code]).to eq 0
+    expect(reload[:stderr]).not_to match(/Failed to get "write" lock/)
+
+    ssh = vagrant_ssh(@work_dir, command: %q{lsblk -d -n -o TYPE | grep -c '^disk$'})
+    expect(ssh[:exit_code]).to eq 0
+    expect(ssh[:stdout].lines.last.to_s.strip.to_i).to be >= 2
+  end
 end

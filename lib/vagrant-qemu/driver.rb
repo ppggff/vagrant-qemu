@@ -472,6 +472,14 @@ module VagrantPlugins
         end
       end
 
+      # Vagrant's Disk middleware always passes the *complete* current disk
+      # list and re-runs on every action_start (including a same-process
+      # reload, which reuses this Driver instance) -- so attach_disk/attach_dvd
+      # must be rebuilt from a clean slate each time, not accumulated across calls.
+      def reset_attached_drives!
+        @attached_drives = {disk: [], floppy: [], dvd: []}
+      end
+
       def attach_dvd(disk)
         @attached_drives[:dvd] << disk
       end
