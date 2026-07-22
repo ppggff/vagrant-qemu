@@ -50,6 +50,15 @@ describe VagrantPlugins::QEMU::Config do
     it "ssh_port stays 50022 regardless of host" do
       expect(finalized(host_arch: "x86_64", host_accel: "kvm").ssh_port).to eq 50022
     end
+
+    it "disables the parallel port instead of attaching a null-backed device" do
+      # "-parallel null" still instantiates the isa-parallel device (guest sees
+      # it, output discarded); some distro qemu-kvm builds (e.g. Rocky/RHEL)
+      # don't compile that device in, so instantiating it crashes. "none" skips
+      # device creation entirely and works everywhere.
+      expect(finalized(host_arch: "x86_64", host_accel: "kvm").other_default)
+        .to eq %w(-parallel none -monitor none -display none -vga none)
+    end
   end
 
   describe "#default_qemu_dir" do

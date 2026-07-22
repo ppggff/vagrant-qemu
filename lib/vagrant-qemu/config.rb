@@ -120,7 +120,7 @@ module VagrantPlugins
         @debug_port = nil if @debug_port == UNSET_VALUE
         @no_daemonize = false if @no_daemonize == UNSET_VALUE
         @firmware_format = "raw" if @firmware_format == UNSET_VALUE
-        @other_default = %W(-parallel null -monitor none -display none -vga none) if @other_default == UNSET_VALUE
+        @other_default = %W(-parallel none -monitor none -display none -vga none) if @other_default == UNSET_VALUE
         @extra_image_opts = nil if @extra_image_opts == UNSET_VALUE
         @graceful_timeout = 60 if @graceful_timeout == UNSET_VALUE
         @advanced_network = false if @advanced_network == UNSET_VALUE
