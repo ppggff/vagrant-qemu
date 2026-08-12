@@ -8,8 +8,10 @@ module VagrantPlugins
       # Supports vmnet-shared, vmnet-host, vmnet-bridged
       class Vmnet < Base
         def build_netdev_args(id, options)
+          # :auto reaches this backend only on macOS, where it means vmnet-shared;
+          # net_mode is not rewritten during backend selection, so match it here.
           case options[:net_mode]
-          when :vmnet_shared
+          when :vmnet_shared, :auto
             base = "vmnet-shared,id=#{id}"
             base += subnet_args(options)
             %W(-netdev #{base})

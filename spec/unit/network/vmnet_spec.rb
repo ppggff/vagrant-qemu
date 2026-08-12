@@ -20,6 +20,12 @@ describe VagrantPlugins::QEMU::Network::Vmnet do
     expect(netdev_arg).to include("subnet-mask=255.255.255.0")
   end
 
+  it "treats :auto as vmnet-shared (macOS default)" do
+    pn = [{ ip: "192.168.105.10", netmask: "255.255.255.0" }]
+    args = subject.build_netdev_args("net1", net_mode: :auto, private_networks: pn)
+    expect(args).to eq subject.build_netdev_args("net1", net_mode: :vmnet_shared, private_networks: pn)
+  end
+
   it "builds vmnet-host args with subnet" do
     args = subject.build_netdev_args("net1",
       net_mode: :vmnet_host,

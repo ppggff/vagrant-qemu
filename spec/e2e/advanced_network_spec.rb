@@ -10,7 +10,10 @@ describe "advanced networking end-to-end", :requires_vmnet do
     end
   end
 
-  it "VM gets the configured static IP" do
+  # net_mode is deliberately left at its default (:auto) here — the other
+  # examples cover it set explicitly. Issue #40 was reported against exactly
+  # this shape, which no test in any layer exercised.
+  it "VM gets the configured static IP with the default net_mode" do
     File.write(@work_dir.join("Vagrantfile"), <<~RUBY)
       Vagrant.configure("2") do |config|
         config.vm.box = "#{test_box_cloudinit}"
@@ -20,7 +23,6 @@ describe "advanced networking end-to-end", :requires_vmnet do
         config.vm.provider "qemu" do |qe|
           qe.memory = "2G"
           qe.advanced_network = true
-          qe.net_mode = :vmnet_shared
         end
       end
     RUBY

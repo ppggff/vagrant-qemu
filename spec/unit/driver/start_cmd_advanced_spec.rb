@@ -67,6 +67,17 @@ describe VagrantPlugins::QEMU::Driver, "start command line (dual NIC)" do
     expect(cmd_str).to include("-netdev vmnet-shared,id=net1")
   end
 
+  # Regression for issue #40: the default net_mode :auto selected the Vmnet
+  # backend but matched none of its cases, so NIC 1 args came back nil.
+  it "builds NIC 1 args for the default net_mode :auto" do
+    allow(VagrantPlugins::QEMU::Network).to receive(:auto_detect)
+      .and_return(VagrantPlugins::QEMU::Network::Vmnet.new)
+    subject.start(advanced_options.merge(net_mode: :auto))
+    cmd_str = @captured_cmd.join(" ")
+    expect(cmd_str).to include("-netdev vmnet-shared,id=net1")
+    expect(cmd_str).to include("start-address=192.168.105.1")
+  end
+
   it "NIC 1 has different MAC than NIC 0" do
     subject.start(advanced_options)
     cmd_str = @captured_cmd.join(" ")
