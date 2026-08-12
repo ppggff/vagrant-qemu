@@ -195,3 +195,13 @@
   that device, just with its output discarded; `-parallel none` — now the
   default — skips creating it entirely, matching how the other default args
   (`-monitor`/`-display`/`-vga`) already disable their optional devices. (#80)
+
+# 0.6.3 (2026-08-12)
+
+* Fix `vagrant up` aborting with `no implicit conversion of nil into Array`
+  on macOS whenever `advanced_network` was enabled without also setting
+  `net_mode`. The default `net_mode` of `:auto` selects the vmnet backend but
+  was never resolved to a concrete mode, so the backend produced no `-netdev`
+  arguments for the private network NIC and the command line assembly blew up
+  before QEMU was launched. Setting `net_mode` explicitly (e.g.
+  `:vmnet_shared`) was the workaround. (#40)
