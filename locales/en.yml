@@ -72,6 +72,10 @@ en:
         Invalid config.
 
         Error: %{err}
+      virtiofsd_not_found: |-
+        virtiofsd was not found. Install virtiofsd or set virtiofsd_bin in the QEMU provider config.
+      virtiofsd_start_failed: |-
+        virtiofsd failed to start for %{hostpath}. Check the log at %{log_file}.
       floppy_unsupported: |-
         Floppy disks not supported
       qemu_binary_not_found: |-

@@ -1,0 +1,23 @@
+name: VirtioFS foundation
+
+on:
+  push:
+    branches: [t3code/upstream-virtiofs-foundation]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  provider-commands:
+    name: Provider commands (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+      - run: ruby test/virtiofs_foundation_test.rb

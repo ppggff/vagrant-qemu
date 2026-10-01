@@ -35,6 +35,7 @@ Others:
 * SSH into VM
 * Provision the instances with any built-in Vagrant provisioner
 * Synced folder support via SMB
+* Synced folder support via VirtioFS for Linux guests
 * Basic operation: up, ssh, halt, destroy
 * Basic suport to forwarded ports, see [vagrant doc](https://www.vagrantup.com/docs/networking/forwarded_ports) for details
 * Support Cloud-init, see [vagrant doc](https://developer.hashicorp.com/vagrant/docs/cloud-init/usage) for details
@@ -65,6 +66,23 @@ Notes:
 * may need password to setup SMB on Mac,
   see [vagrant doc](https://www.vagrantup.com/docs/synced-folders/smb) for details
 * need username/password to access shared folder
+
+### VirtioFS synced folders
+
+Install `virtiofsd` on the host and use a Linux guest with VirtioFS support.
+The plugin searches `PATH`, `/usr/libexec`, and `/usr/lib/qemu` for the daemon;
+set `qe.virtiofsd_bin` when it is installed elsewhere.
+
+```ruby
+config.vm.synced_folder "./src", "/home/vagrant/src", type: "virtiofs"
+config.vm.provider "qemu" do |qe|
+  qe.virtiofsd_bin = "/path/to/virtiofsd" # optional
+end
+```
+
+`virtiofs_guest_uid` and `virtiofs_guest_gid` default to `1000`. UID/GID
+translation is used when the installed daemon supports it. Additional daemon
+arguments can be passed through `extra_virtiofsd_args` as an array.
 
 ## Box format
 

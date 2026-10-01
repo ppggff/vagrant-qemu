@@ -16,6 +16,11 @@ module VagrantPlugins
       attr_accessor :image_path
       attr_accessor :qemu_bin
       attr_accessor :qemu_dir
+      attr_accessor :virtiofsd_bin
+      attr_accessor :virtiofs_guest_uid
+      attr_accessor :virtiofs_guest_gid
+      attr_accessor :extra_virtiofsd_args
+      attr_accessor :virtiofs_qemu_args
       attr_accessor :disk_resize
       attr_accessor :extra_qemu_args
       attr_accessor :extra_netdev_args
@@ -58,6 +63,11 @@ module VagrantPlugins
         @image_path = UNSET_VALUE
         @qemu_bin = UNSET_VALUE
         @qemu_dir = UNSET_VALUE
+        @virtiofsd_bin = UNSET_VALUE
+        @virtiofs_guest_uid = UNSET_VALUE
+        @virtiofs_guest_gid = UNSET_VALUE
+        @extra_virtiofsd_args = UNSET_VALUE
+        @virtiofs_qemu_args = []
         @disk_resize = UNSET_VALUE
         @extra_qemu_args = UNSET_VALUE
         @extra_netdev_args = UNSET_VALUE
@@ -112,6 +122,10 @@ module VagrantPlugins
         @image_path = nil if @image_path == UNSET_VALUE
         @qemu_bin = nil if @qemu_bin == UNSET_VALUE
         @qemu_dir = default_qemu_dir(@arch) if @qemu_dir == UNSET_VALUE
+        @virtiofsd_bin = find_virtiofsd if @virtiofsd_bin == UNSET_VALUE
+        @virtiofs_guest_uid = 1000 if @virtiofs_guest_uid == UNSET_VALUE
+        @virtiofs_guest_gid = 1000 if @virtiofs_guest_gid == UNSET_VALUE
+        @extra_virtiofsd_args = [] if @extra_virtiofsd_args == UNSET_VALUE
         @disk_resize = nil if @disk_resize == UNSET_VALUE
         @extra_qemu_args = [] if @extra_qemu_args == UNSET_VALUE
         @extra_netdev_args = nil if @extra_netdev_args == UNSET_VALUE
@@ -144,6 +158,12 @@ module VagrantPlugins
       end
 
       private
+
+      def find_virtiofsd
+        candidates = ENV.fetch("PATH", "").split(File::PATH_SEPARATOR).map { |dir| File.join(dir, "virtiofsd") }
+        candidates.concat(%w(/usr/libexec/virtiofsd /usr/lib/qemu/virtiofsd))
+        candidates.find { |path| File.file?(path) && File.executable?(path) }
+      end
 
       # Normalized architecture of the host running QEMU. Apple Silicon Ruby
       # reports "arm64"; everything arm-like maps to "aarch64", else "x86_64".
