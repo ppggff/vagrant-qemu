@@ -100,10 +100,15 @@ module VagrantPlugins
       # @param mac1 [String] MAC of advanced network NIC
       # @param ip [String] static IP for the advanced NIC (e.g. "192.168.105.10")
       # @param netmask [String] netmask (e.g. "255.255.255.0")
-      # @return [String] YAML string
+      # Emitted as JSON, which is valid YAML: cloud-init parses network-config
+      # as YAML 1.1, where an unquoted MAC whose octets are all decimal and
+      # below 60 (e.g. 52:54:00:26:47:05) is a base-60 integer. Psych's
+      # to_yaml leaves such a MAC unquoted; JSON always quotes strings.
+      #
+      # @return [String] YAML (JSON) string
       def self.build_network_config(mac0:, mac1:, ip:, netmask: "255.255.255.0")
         require 'ipaddr'
-        require 'yaml'
+        require 'json'
 
         prefix = IPAddr.new(netmask).to_i.to_s(2).count("1")
 
@@ -123,7 +128,7 @@ module VagrantPlugins
           }
         }
 
-        config.to_yaml
+        JSON.pretty_generate(config)
       end
     end
   end
