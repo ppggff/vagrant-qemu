@@ -29,6 +29,15 @@ describe VagrantPlugins::QEMU::Network, ".build_network_config" do
     expect(priv_nic["addresses"]).to eq ["192.168.105.10/24"]
   end
 
+  context "with MACs that YAML 1.1 reads as base-60 integers" do
+    let(:mac0) { "52:54:00:26:47:05" }
+    let(:mac1) { "52:54:00:12:34:56" }
+
+    it "quotes the MACs" do
+      expect(subject).to include("\"#{mac0}\"", "\"#{mac1}\"")
+    end
+  end
+
   it "calculates /16 prefix for 255.255.0.0 netmask" do
     result = described_class.build_network_config(
       mac0: mac0, mac1: mac1,
