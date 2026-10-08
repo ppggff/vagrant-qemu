@@ -37,15 +37,15 @@ describe VagrantPlugins::QEMU::Driver, "P1 local lifecycle" do
     expect(calls.first).to include("if=pflash,format=raw,unit=0,file=#{@dir.join('data', imported[:id], 'firmware.fd')},readonly=on", "if=pflash,format=raw,unit=1,file=#{live_vars}")
   end
 
-  it "uses named pipes and detached launch on Windows without daemonize or TCP" do
+  it "uses local AF_UNIX sockets and detached launch on Windows without daemonize or TCP" do
     allow(@driver).to receive(:windows?).and_return(true)
     allow(Vagrant::Util::Which).to receive(:which).and_return("qemu")
     cmd = nil
     expect(@driver).to receive(:execute) { |*args, **kwargs| cmd = args; expect(kwargs).to eq(detach: true); "" }
     @driver.start(options.merge(qemu_bin: "C:/Program Files/qemu/qemu-system-x86_64.exe"))
     expect(cmd.first).to eq("C:/Program Files/qemu/qemu-system-x86_64.exe")
+    expect(cmd.grep(/^socket,id=/).length).to eq(2)
     expect(cmd).not_to include("-daemonize")
-    expect(cmd.grep(/^pipe,/).length).to eq(2)
     expect(cmd.join(" ")).not_to include("host=localhost")
     expect(cmd.join(" ")).to include("hostfwd=tcp:127.0.0.1:50022-:22")
   end

@@ -5,6 +5,8 @@ require 'yaml'
 require 'digest'
 require 'socket'
 require 'fiddle/import'
+require 'json'
+require 'tmpdir'
 
 require "vagrant/util/busy"
 require 'vagrant/util/io'
@@ -12,6 +14,7 @@ require "vagrant/util/safe_chdir"
 require "vagrant/util/subprocess"
 require "vagrant/util/which"
 
+require 'timeout'
 require_relative "plugin"
 require_relative "network"
 
@@ -50,6 +53,7 @@ module VagrantPlugins
         raise Errors::ConfigError, err: "Cannot delete a running QEMU Machine" if running?
         if created?
           id_dir = @data_dir.join(@vm_id)
+          [local_socket('monitor'), local_socket('serial')].each { |path| FileUtils.rm_f(path) } if windows?
           FileUtils.rm_rf(id_dir)
           id_tmp_dir = @tmp_dir.join(@vm_id)
           FileUtils.rm_rf(id_tmp_dir)
@@ -204,14 +208,14 @@ module VagrantPlugins
           # control
           pid_file = id_tmp_dir.join("qemu.pid").to_s
           if windows?
-            raise Errors::ConfigError, err: "Windows monitor/serial must use local pipes" if options[:control_port] || options[:debug_port]
-            cmd += ["-chardev", "pipe,id=mon0,path=#{pipe_name('monitor')}"]
+            raise Errors::ConfigError, err: "Windows monitor/serial must use local sockets" if options[:control_port] || options[:debug_port]
+            cmd += ["-chardev", "socket,id=mon0,path=#{local_socket('monitor')},server=on,wait=off"]
           else
             cmd += %W(-chardev socket,id=mon0,#{control_socket},server=on,wait=off)
           end
-          cmd += %W(-mon chardev=mon0,mode=readline)
+          cmd += ["-mon", "chardev=mon0,mode=#{options[:control_port] ? 'readline' : 'control'}"]
           if windows?
-            cmd += ["-chardev", "pipe,id=ser0,path=#{pipe_name('serial')}"]
+            cmd += ["-chardev", "socket,id=ser0,path=#{local_socket('serial')},server=on,wait=off"]
           else
             cmd += %W(-chardev socket,id=ser0,#{debug_socket},server=on,wait=off)
           end
@@ -290,8 +294,8 @@ module VagrantPlugins
         end
       end
 
-      def pipe_name(channel)
-        "vagrant-qemu-#{Digest::SHA256.hexdigest(@data_dir.expand_path.to_s + @vm_id)[0, 24]}-#{channel}"
+      def local_socket(channel)
+        Pathname.new(Dir.tmpdir).join("vq-#{Digest::SHA256.hexdigest(@data_dir.expand_path.to_s + @vm_id)[0, 24]}-#{channel}.sock").to_s
       end
 
       def process_id
@@ -319,20 +323,25 @@ module VagrantPlugins
       # socket may already be gone (e.g. QEMU exited from a prior command), so
       # connection errors are swallowed.
       def send_monitor(options, command)
-        if windows?
-          File.open("\\\\.\\pipe\\#{pipe_name('monitor')}", "r+b") do |pipe|
-            pipe.write("#{command}\n")
-            pipe.flush
-          end
-        elsif !options[:control_port].nil?
-          Socket.tcp("localhost", options[:control_port], connect_timeout: 5) do |sock|
-            sock.print "#{command}\n"
-            sock.close_write
-            sock.read rescue nil
+        if options[:control_port].nil?
+          Timeout.timeout(5) do
+            path = windows? ? local_socket('monitor') : @tmp_dir.join(@vm_id, "qemu_socket").to_s
+            Socket.unix(path) do |pipe|
+              JSON.parse(pipe.gets)
+              pipe.puts(JSON.generate(execute: "qmp_capabilities"))
+              loop do
+                response = JSON.parse(pipe.gets)
+                break if response.key?("return") || response.key?("error")
+              end
+              pipe.puts(JSON.generate(execute: command))
+              loop do
+                response = JSON.parse(pipe.gets)
+                break if response.key?("return") || response.key?("error")
+              end
+            end
           end
         else
-          unix_socket_path = @tmp_dir.join(@vm_id).join("qemu_socket").to_s
-          Socket.unix(unix_socket_path) do |sock|
+          Socket.tcp("localhost", options[:control_port], connect_timeout: 5) do |sock|
             sock.print "#{command}\n"
             sock.close_write
             sock.read rescue nil
@@ -449,6 +458,7 @@ module VagrantPlugins
         if opts[:detach] && windows?
           dir = @tmp_dir.join(@vm_id)
           FileUtils.rm_f(dir.join("qemu.pid"))
+          [local_socket('monitor'), local_socket('serial')].each { |path| FileUtils.rm_f(path) }
           pid = Process.spawn(*cmd, in: File::NULL, out: dir.join("qemu.stdout.log").to_s, err: dir.join("qemu.stderr.log").to_s, new_pgroup: true, close_others: true)
           50.times do
             return "" if process_id == pid && running?

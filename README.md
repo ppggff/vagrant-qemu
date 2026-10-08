@@ -17,10 +17,11 @@ Changing templates on an existing Machine requires destroy/import, never an
 overwrite of its live NVRAM. Do not also supply pflash through extra_qemu_args.
 
 Windows automatically uses a detached process without -daemonize, with stdout
-and stderr files under the Machine temporary directory. Monitor and COM1 use
-local duplex named pipes, not TCP; leave control_port and debug_port nil.
-Pipe names are vagrant-qemu-<first 24 hex SHA256(expanded data_dir + vm_id)>-
-monitor and -serial, opened through the Windows local pipe namespace.
+and stderr files under the Machine temporary directory. Monitor (QMP) and COM1
+use reconnectable local AF_UNIX sockets, not TCP; leave control_port and
+debug_port nil. Vagrant's embedded Windows Ruby supports AF_UNIX even if the
+host Python does not. Windows socket names live in the OS temporary directory:
+vq-<first 24 hex SHA256(expanded data_dir + vm_id)>-monitor.sock and -serial.sock.
 Linux continues to use local Unix sockets when both ports are nil.
 SSH forwards bind ssh_host (default 127.0.0.1); other forwarded ports with no
 host_ip bind 127.0.0.1. Explicit host_ip is honored for Controller reachability.

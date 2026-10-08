@@ -209,6 +209,6 @@
 # 0.6.3.vmlab.1
 
 * Separate vmlab diagnostic prerelease maintained by mrmichaeladavis.
-* Windows detached launch, local monitor/serial pipes and process-exit checks.
+* Windows detached launch, local AF_UNIX monitor/serial and process-exit checks.
 * Explicit firmware/efi_vars templates with Provider-owned persistent pflash.
 * Loopback-default SSH/forwarded ports and refusal to orphan running Machines.

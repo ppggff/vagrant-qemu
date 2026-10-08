@@ -35,7 +35,7 @@ RSpec.configure do |config|
   config.filter_run_excluding :requires_qemu unless ENV["TEST_QEMU"]
   config.filter_run_excluding :requires_vmnet unless ENV["TEST_VMNET"]
   config.filter_run_excluding :requires_socket_vmnet unless ENV["TEST_SOCKET_VMNET"]
-  config.filter_run_excluding :requires_windows_qemu unless ENV["TEST_WINDOWS_QEMU"] && Vagrant::Util::Platform.windows?
+  config.filter_run_excluding :requires_native_qemu unless ENV["TEST_NATIVE_QEMU"]
 end
 
 # Helper to create a temporary directory that is cleaned up after the test
