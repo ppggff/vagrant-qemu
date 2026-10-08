@@ -81,6 +81,8 @@ module VagrantPlugins
             :qemu_dir => qemu_dir,
             :arch => env[:machine].provider_config.arch,
             :firmware_format => env[:machine].provider_config.firmware_format,
+            :firmware => env[:machine].provider_config.firmware,
+            :efi_vars => env[:machine].provider_config.efi_vars,
             :extra_image_opts => env[:machine].provider_config.extra_image_opts,
             :disk_resize => env[:machine].provider_config.disk_resize,
           }

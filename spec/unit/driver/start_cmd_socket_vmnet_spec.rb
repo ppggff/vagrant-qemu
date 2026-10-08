@@ -48,6 +48,10 @@ describe VagrantPlugins::QEMU::Driver, "start command line (socket_vmnet)" do
   end
 
   before do
+    allow(RbConfig::CONFIG).to receive(:[]).and_call_original
+    allow(RbConfig::CONFIG).to receive(:[]).with("host_os").and_return("darwin")
+    allow(File).to receive(:executable?).and_call_original
+    allow(File).to receive(:executable?).with(@client).and_return(true)
     @captured_cmd = nil
     allow(subject).to receive(:execute) do |*cmd, **opts|
       @captured_cmd = cmd
@@ -80,7 +84,7 @@ describe VagrantPlugins::QEMU::Driver, "start command line (socket_vmnet)" do
 
     it "keeps NIC 0 user-mode with SSH hostfwd" do
       subject.start(options)
-      expect(@captured_cmd.join(" ")).to include("-netdev user,id=net0,hostfwd=tcp::50022-:22")
+      expect(@captured_cmd.join(" ")).to include("-netdev user,id=net0,hostfwd=tcp:127.0.0.1:50022-:22")
     end
   end
 

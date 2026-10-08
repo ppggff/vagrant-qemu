@@ -65,7 +65,7 @@ describe VagrantPlugins::QEMU::Driver, "start edge cases" do
                               advanced_network: false, private_networks: [])
     subject.start(opts)
     cmd_str = @captured_cmd.join(" ")
-    expect(cmd_str).to include("hostfwd=tcp::50022-:22")
+    expect(cmd_str).to include("hostfwd=tcp:127.0.0.1:50022-:22")
     # No extra hostfwd entries
     expect(cmd_str.scan("hostfwd=").length).to eq 1
   end

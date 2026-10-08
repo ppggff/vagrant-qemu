@@ -24,6 +24,8 @@ module VagrantPlugins
       attr_accessor :debug_port
       attr_accessor :no_daemonize
       attr_accessor :firmware_format
+      attr_accessor :firmware
+      attr_accessor :efi_vars
       attr_accessor :other_default
       attr_accessor :extra_image_opts
       attr_accessor :graceful_timeout  # seconds to wait for guest shutdown before force kill
@@ -66,6 +68,8 @@ module VagrantPlugins
         @debug_port = UNSET_VALUE
         @no_daemonize = UNSET_VALUE
         @firmware_format = UNSET_VALUE
+        @firmware = UNSET_VALUE
+        @efi_vars = UNSET_VALUE
         @other_default = UNSET_VALUE
         @extra_image_opts = UNSET_VALUE
         @graceful_timeout = UNSET_VALUE
@@ -120,6 +124,8 @@ module VagrantPlugins
         @debug_port = nil if @debug_port == UNSET_VALUE
         @no_daemonize = false if @no_daemonize == UNSET_VALUE
         @firmware_format = "raw" if @firmware_format == UNSET_VALUE
+        @firmware = nil if @firmware == UNSET_VALUE
+        @efi_vars = nil if @efi_vars == UNSET_VALUE
         @other_default = %W(-parallel none -monitor none -display none -vga none) if @other_default == UNSET_VALUE
         @extra_image_opts = nil if @extra_image_opts == UNSET_VALUE
         @graceful_timeout = 60 if @graceful_timeout == UNSET_VALUE
@@ -140,6 +146,10 @@ module VagrantPlugins
       def validate(machine)
         # errors = _detected_errors
         errors = []
+        errors << "firmware and efi_vars must both name pristine templates" if !!@firmware != !!@efi_vars
+        [@firmware, @efi_vars].compact.each do |path|
+          errors << "Firmware template does not exist: #{path}" unless File.file?(path)
+        end
         { "QEMU Provider" => errors }
       end
 

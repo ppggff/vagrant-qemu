@@ -205,3 +205,10 @@
   arguments for the private network NIC and the command line assembly blew up
   before QEMU was launched. Setting `net_mode` explicitly (e.g.
   `:vmnet_shared`) was the workaround. (#40)
+
+# 0.6.3.vmlab.1
+
+* Separate vmlab diagnostic prerelease maintained by mrmichaeladavis.
+* Windows detached launch, local monitor/serial pipes and process-exit checks.
+* Explicit firmware/efi_vars templates with Provider-owned persistent pflash.
+* Loopback-default SSH/forwarded ports and refusal to orphan running Machines.

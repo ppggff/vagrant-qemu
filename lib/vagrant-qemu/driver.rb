@@ -2,6 +2,9 @@ require 'log4r'
 require 'childprocess'
 require 'securerandom'
 require 'yaml'
+require 'digest'
+require 'socket'
+require 'fiddle/import'
 
 require "vagrant/util/busy"
 require 'vagrant/util/io'
@@ -44,6 +47,7 @@ module VagrantPlugins
       end
 
       def delete
+        raise Errors::ConfigError, err: "Cannot delete a running QEMU Machine" if running?
         if created?
           id_dir = @data_dir.join(@vm_id)
           FileUtils.rm_rf(id_dir)
@@ -97,7 +101,7 @@ module VagrantPlugins
             if options[:qemu_bin].kind_of?(Array)
               cmd += options[:qemu_bin]
             else
-              cmd += %W(#{options[:qemu_bin]})
+              cmd << options[:qemu_bin]
             end
           end
 
@@ -126,7 +130,7 @@ module VagrantPlugins
 
               # NIC 0: user-mode
               cmd += %W(-device #{options[:net_device]},netdev=net0,mac=#{mac0})
-              hostfwd = "hostfwd=tcp::#{options[:ssh_port]}-:22"
+              hostfwd = "hostfwd=tcp:#{options[:ssh_host] || '127.0.0.1'}:#{options[:ssh_port]}-:22"
               options[:ports].each do |v|
                 hostfwd += ",hostfwd=#{v}"
               end
@@ -150,7 +154,7 @@ module VagrantPlugins
               # Single NIC: user-mode only (original behavior, no cloud-init)
               cmd += %W(-device #{options[:net_device]},netdev=net0)
 
-              hostfwd = "hostfwd=tcp::#{options[:ssh_port]}-:22"
+              hostfwd = "hostfwd=tcp:#{options[:ssh_host] || '127.0.0.1'}:#{options[:ssh_port]}-:22"
               options[:ports].each do |v|
                 hostfwd += ",hostfwd=#{v}"
               end
@@ -175,7 +179,10 @@ module VagrantPlugins
               diskid += 1
             end
           end
-          if options[:arch] == "aarch64" && !options[:firmware_format].nil?
+          if options[:firmware]
+            cmd += ["-drive", "if=pflash,format=raw,unit=0,file=#{id_dir.join('firmware.fd')},readonly=on"]
+            cmd += ["-drive", "if=pflash,format=raw,unit=1,file=#{id_dir.join('efi-vars.fd')}"]
+          elsif options[:arch] == "aarch64" && !options[:firmware_format].nil?
             fm1_path = id_dir.join("edk2-aarch64-code.fd").to_s
             fm2_path = id_dir.join("edk2-arm-vars.fd").to_s
             cmd += %W(-drive if=pflash,format=#{options[:firmware_format]},file=#{fm1_path},readonly=on)
@@ -196,12 +203,21 @@ module VagrantPlugins
 
           # control
           pid_file = id_tmp_dir.join("qemu.pid").to_s
-          cmd += %W(-chardev socket,id=mon0,#{control_socket},server=on,wait=off)
+          if windows?
+            raise Errors::ConfigError, err: "Windows monitor/serial must use local pipes" if options[:control_port] || options[:debug_port]
+            cmd += ["-chardev", "pipe,id=mon0,path=#{pipe_name('monitor')}"]
+          else
+            cmd += %W(-chardev socket,id=mon0,#{control_socket},server=on,wait=off)
+          end
           cmd += %W(-mon chardev=mon0,mode=readline)
-          cmd += %W(-chardev socket,id=ser0,#{debug_socket},server=on,wait=off)
+          if windows?
+            cmd += ["-chardev", "pipe,id=ser0,path=#{pipe_name('serial')}"]
+          else
+            cmd += %W(-chardev socket,id=ser0,#{debug_socket},server=on,wait=off)
+          end
           cmd += %W(-serial chardev:ser0)
           cmd += %W(-pidfile #{pid_file})
-          if !options[:no_daemonize]
+          if !options[:no_daemonize] && !windows?
             cmd += %W(-daemonize)
           end
 
@@ -215,7 +231,7 @@ module VagrantPlugins
           # (empty prefix otherwise -> zero difference from the current path).
           cmd = launch_prefix + cmd
 
-          opts = {:detach => options[:no_daemonize]}
+          opts = {:detach => options[:no_daemonize] || windows?}
           execute(*cmd, **opts)
         end
       end
@@ -242,9 +258,49 @@ module VagrantPlugins
         # 3. Last resort: SIGKILL the QEMU process (no flush/cleanup).
         @logger.warn("VM still running after 'quit'; forcing kill")
         force_kill
+        raise Errors::ConfigError, err: "QEMU did not terminate after forced halt" if still_running_after?(5)
       end
 
       private
+
+      def windows?
+        Vagrant::Util::Platform.windows?
+      end
+
+      def windows_running?(pid)
+        api = windows_process_api
+        handle = api.OpenProcess(0x00100000, 0, pid)
+        return false if handle.to_i.zero?
+        begin
+          result = api.WaitForSingleObject(handle, 0)
+          raise Errors::ConfigError, err: "Cannot determine QEMU process state" unless [0, 258].include?(result)
+          result == 258
+        ensure
+          api.CloseHandle(handle)
+        end
+      end
+
+      def windows_process_api
+        @windows_process_api ||= Module.new do
+          extend Fiddle::Importer
+          dlload "kernel32.dll"
+          extern "void* OpenProcess(unsigned long, int, unsigned long)"
+          extern "unsigned long WaitForSingleObject(void*, unsigned long)"
+          extern "int CloseHandle(void*)"
+        end
+      end
+
+      def pipe_name(channel)
+        "vagrant-qemu-#{Digest::SHA256.hexdigest(@data_dir.expand_path.to_s + @vm_id)[0, 24]}-#{channel}"
+      end
+
+      def process_id
+        path = @tmp_dir.join(@vm_id, "qemu.pid")
+        return nil unless path.file?
+        text = File.read(path).strip
+        return nil unless text.match?(/\A[1-9][0-9]*\z/)
+        Integer(text)
+      end
 
       # Prefer the control_port the VM was actually started with (persisted
       # in options.yml) so halt still works after a Vagrantfile edit.
@@ -263,7 +319,12 @@ module VagrantPlugins
       # socket may already be gone (e.g. QEMU exited from a prior command), so
       # connection errors are swallowed.
       def send_monitor(options, command)
-        if !options[:control_port].nil?
+        if windows?
+          File.open("\\\\.\\pipe\\#{pipe_name('monitor')}", "r+b") do |pipe|
+            pipe.write("#{command}\n")
+            pipe.flush
+          end
+        elsif !options[:control_port].nil?
           Socket.tcp("localhost", options[:control_port], connect_timeout: 5) do |sock|
             sock.print "#{command}\n"
             sock.close_write
@@ -292,10 +353,8 @@ module VagrantPlugins
       end
 
       def force_kill
-        pid_file = @tmp_dir.join(@vm_id).join("qemu.pid")
-        return unless pid_file.file?
-
-        pid = File.read(pid_file).to_i
+        pid = process_id
+        return unless pid
         begin
           Process.kill("KILL", pid)
         rescue Errno::ESRCH
@@ -329,10 +388,14 @@ module VagrantPlugins
         FileUtils.mkdir_p(id_tmp_dir)
 
         # Prepare firmware
-        if options[:arch] == "aarch64" && !options[:firmware_format].nil?
-          execute("cp", options[:qemu_dir].join("edk2-aarch64-code.fd").to_s, id_dir.join("edk2-aarch64-code.fd").to_s)
-          execute("cp", options[:qemu_dir].join("edk2-arm-vars.fd").to_s, id_dir.join("edk2-arm-vars.fd").to_s)
-          execute("chmod", "644", id_dir.join("edk2-arm-vars.fd").to_s)
+        if options[:firmware]
+          FileUtils.cp(options[:firmware], id_dir.join("firmware.fd"))
+          FileUtils.cp(options[:efi_vars], id_dir.join("efi-vars.fd"))
+          FileUtils.chmod(0644, id_dir.join("efi-vars.fd"))
+        elsif options[:arch] == "aarch64" && !options[:firmware_format].nil?
+          FileUtils.cp(options[:qemu_dir].join("edk2-aarch64-code.fd"), id_dir.join("edk2-aarch64-code.fd"))
+          FileUtils.cp(options[:qemu_dir].join("edk2-arm-vars.fd"), id_dir.join("edk2-arm-vars.fd"))
+          FileUtils.chmod(0644, id_dir.join("edk2-arm-vars.fd"))
         end
 
         # Create image
@@ -370,11 +433,12 @@ module VagrantPlugins
       end
 
       def running?
-        pid_file = @tmp_dir.join(@vm_id).join("qemu.pid")
-        return false if !pid_file.file?
+        pid = process_id
+        return false unless pid
+        return windows_running?(pid) if windows?
 
         begin
-          Process.kill(0, File.read(pid_file).to_i)
+          Process.kill(0, pid)
           true
         rescue Errno::ESRCH
           false
@@ -382,6 +446,17 @@ module VagrantPlugins
       end
 
       def execute(*cmd, **opts, &block)
+        if opts[:detach] && windows?
+          dir = @tmp_dir.join(@vm_id)
+          FileUtils.rm_f(dir.join("qemu.pid"))
+          pid = Process.spawn(*cmd, in: File::NULL, out: dir.join("qemu.stdout.log").to_s, err: dir.join("qemu.stderr.log").to_s, new_pgroup: true, close_others: true)
+          50.times do
+            return "" if process_id == pid && running?
+            sleep 0.1
+          end
+          Process.kill("KILL", pid) rescue Errno::ESRCH
+          raise Errors::ExecuteError, command: cmd.inspect, stderr: File.read(dir.join("qemu.stderr.log")), stdout: File.read(dir.join("qemu.stdout.log"))
+        end
         result = nil
         interrupted = false
 

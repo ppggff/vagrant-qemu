@@ -3,6 +3,36 @@
 This is a Vagrant plugin that adds a simple QEMU provider to Vagrant, allowing Vagrant
 to control and provision machines using QEMU.
 
+## vmlab fork contract (0.6.3.vmlab.1)
+
+Maintainer: mrmichaeladavis (the vmlab user). This separate Ruby Provider is
+not bundled inside the vmlab skill. It is a diagnostic prerelease, not a claim
+that Windows Setup, installed guest SSH/key insertion or cross-host boot passed.
+
+Set both qe.firmware and qe.efi_vars to absolute paths of
+pristine raw firmware templates. Import copies them into the Provider-owned
+Machine directory as firmware.fd and efi-vars.fd. Pflash unit 0 is read-only;
+unit 1 is writable and persists over halt/start/reload. Destroy removes both.
+Changing templates on an existing Machine requires destroy/import, never an
+overwrite of its live NVRAM. Do not also supply pflash through extra_qemu_args.
+
+Windows automatically uses a detached process without -daemonize, with stdout
+and stderr files under the Machine temporary directory. Monitor and COM1 use
+local duplex named pipes, not TCP; leave control_port and debug_port nil.
+Pipe names are vagrant-qemu-<first 24 hex SHA256(expanded data_dir + vm_id)>-
+monitor and -serial, opened through the Windows local pipe namespace.
+Linux continues to use local Unix sockets when both ports are nil.
+SSH forwards bind ssh_host (default 127.0.0.1); other forwarded ports with no
+host_ip bind 127.0.0.1. Explicit host_ip is honored for Controller reachability.
+For the qualified Windows diagnostic set machine to
+q35,accel=whpx,kernel-irqchip=off and cpu to max. Snapshot and suspend remain
+unsupported. Halt escalates powerdown, monitor quit, then kill and confirms exit;
+destroy refuses to remove a still-running Machine.
+
+Removal criteria: switch back to a pinned upstream release only after it includes
+these fixes and native Windows/Linux P1 lifecycle, local-channel, loopback-forward
+and persistent installed-guest pflash evidence passes without fork patches.
+
 **Notes: test with Apple Silicon / M1 and CentOS / Ubuntu aarch64 image**
 
 ## Compatible with

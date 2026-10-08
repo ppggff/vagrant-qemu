@@ -47,7 +47,7 @@ describe VagrantPlugins::QEMU::Driver, "#stop" do
 
   it "force kills only after both powerdown and 'quit' fail" do
     allow(subject).to receive(:sleep)
-    allow(subject).to receive(:running?).and_return(true) # never stops
+    allow(subject).to receive(:running?).and_return(true, true, true, true, true, false)
     allow(subject).to receive(:send_monitor)
 
     pid_dir = @tmp_base.join("vagrant-qemu", vm_id)
@@ -88,7 +88,7 @@ describe VagrantPlugins::QEMU::Driver, "#stop" do
 
   it "swallows ESRCH on force_kill when the process is already gone" do
     allow(subject).to receive(:sleep)
-    allow(subject).to receive(:running?).and_return(true)
+    allow(subject).to receive(:running?).and_return(true, true, true, true, true, false)
     allow(subject).to receive(:send_monitor)
 
     pid_dir = @tmp_base.join("vagrant-qemu", vm_id)
