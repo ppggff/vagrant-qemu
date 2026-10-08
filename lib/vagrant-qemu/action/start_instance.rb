@@ -35,6 +35,7 @@ module VagrantPlugins
             :firmware_format => config.firmware_format,
             :firmware => config.firmware,
             :efi_vars => config.efi_vars,
+            :serial_log_file => config.serial_log_file,
             :other_default => config.other_default,
             :extra_image_opts => config.extra_image_opts,
             # Advanced networking

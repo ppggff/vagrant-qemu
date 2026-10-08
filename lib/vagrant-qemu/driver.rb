@@ -214,10 +214,15 @@ module VagrantPlugins
             cmd += %W(-chardev socket,id=mon0,#{control_socket},server=on,wait=off)
           end
           cmd += ["-mon", "chardev=mon0,mode=#{options[:control_port] ? 'readline' : 'control'}"]
+          serial_log = ""
+          if options[:serial_log_file]
+            FileUtils.mkdir_p(File.dirname(options[:serial_log_file]))
+            serial_log = ",logfile=#{options[:serial_log_file]},logappend=on"
+          end
           if windows?
-            cmd += ["-chardev", "socket,id=ser0,path=#{local_socket('serial')},server=on,wait=off"]
+            cmd += ["-chardev", "socket,id=ser0,path=#{local_socket('serial')},server=on,wait=off#{serial_log}"]
           else
-            cmd += %W(-chardev socket,id=ser0,#{debug_socket},server=on,wait=off)
+            cmd += %W(-chardev socket,id=ser0,#{debug_socket},server=on,wait=off#{serial_log})
           end
           cmd += %W(-serial chardev:ser0)
           cmd += %W(-pidfile #{pid_file})
@@ -237,6 +242,14 @@ module VagrantPlugins
 
           opts = {:detach => options[:no_daemonize] || windows?}
           execute(*cmd, **opts)
+          if running?
+            control = options[:control_port] ? {transport: "tcp", host: "localhost", port: options[:control_port], protocol: "hmp"} : {transport: "unix", path: windows? ? local_socket('monitor') : id_tmp_dir.join("qemu_socket").to_s, protocol: "qmp"}
+            serial = options[:debug_port] ? {transport: "tcp", host: "localhost", port: options[:debug_port], slot: 1} : {transport: "unix", path: windows? ? local_socket('serial') : id_tmp_dir.join("qemu_socket_serial").to_s, slot: 1}
+            firmware = options[:firmware] ? id_dir.join("firmware.fd").to_s : (options[:arch] == "aarch64" && options[:firmware_format] ? id_dir.join("edk2-aarch64-code.fd").to_s : nil)
+            efi_vars = options[:firmware] ? id_dir.join("efi-vars.fd").to_s : (options[:arch] == "aarch64" && options[:firmware_format] ? id_dir.join("edk2-arm-vars.fd").to_s : nil)
+            runtime = {schema_version: 1, vm_id: @vm_id, pid: process_id, argv: cmd, control: control, serial: serial, firmware: firmware, efi_vars: efi_vars, serial_log_file: options[:serial_log_file]}
+            File.write(id_tmp_dir.join("runtime.json"), JSON.pretty_generate(runtime))
+          end
         end
       end
 

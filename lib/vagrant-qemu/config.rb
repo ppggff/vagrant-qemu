@@ -26,6 +26,7 @@ module VagrantPlugins
       attr_accessor :firmware_format
       attr_accessor :firmware
       attr_accessor :efi_vars
+      attr_accessor :serial_log_file
       attr_accessor :other_default
       attr_accessor :extra_image_opts
       attr_accessor :graceful_timeout  # seconds to wait for guest shutdown before force kill
@@ -70,6 +71,7 @@ module VagrantPlugins
         @firmware_format = UNSET_VALUE
         @firmware = UNSET_VALUE
         @efi_vars = UNSET_VALUE
+        @serial_log_file = UNSET_VALUE
         @other_default = UNSET_VALUE
         @extra_image_opts = UNSET_VALUE
         @graceful_timeout = UNSET_VALUE
@@ -126,6 +128,7 @@ module VagrantPlugins
         @firmware_format = "raw" if @firmware_format == UNSET_VALUE
         @firmware = nil if @firmware == UNSET_VALUE
         @efi_vars = nil if @efi_vars == UNSET_VALUE
+        @serial_log_file = nil if @serial_log_file == UNSET_VALUE
         @other_default = %W(-parallel none -monitor none -display none -vga none) if @other_default == UNSET_VALUE
         @extra_image_opts = nil if @extra_image_opts == UNSET_VALUE
         @graceful_timeout = 60 if @graceful_timeout == UNSET_VALUE

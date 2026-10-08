@@ -212,3 +212,12 @@
 * Windows detached launch, local AF_UNIX monitor/serial and process-exit checks.
 * Explicit firmware/efi_vars templates with Provider-owned persistent pflash.
 * Loopback-default SSH/forwarded ports and refusal to orphan running Machines.
+
+# 0.6.3.vmlab.2
+
+* Optional serial_log_file adds append logging to owned COM1, not a new slot.
+* After a confirmed start, runtime.json records actual argv/PID/local endpoints
+  and owned firmware/vars paths for read-only observers. Halt retains; destroy
+  removes. This record never replaces Vagrant lifecycle authority.
+* Changed-file regressions and real QEMU11.1 Windows WHPX/Linux KVM diagnostics
+  cover runtime discovery and retained log bytes; no installed SAC/Setup claim.
