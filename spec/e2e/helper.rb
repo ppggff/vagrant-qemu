@@ -65,7 +65,10 @@ module E2EHelper
     run_vagrant_cmd("reload", cwd: cwd, timeout: timeout)
   end
 
-  def vagrant_destroy(cwd, timeout: 60)
+  # Longer than the driver's own escalation (powerdown, then quit, each up to
+  # graceful_timeout) for two machines: killing vagrant mid-stop leaves the
+  # daemonized QEMU running and holding its ports for the next example.
+  def vagrant_destroy(cwd, timeout: 300)
     run_vagrant_cmd("destroy", "-f", cwd: cwd, timeout: timeout)
   end
 
