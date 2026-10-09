@@ -22,3 +22,6 @@ Vagrantfile
 # RVM files for gemset/ruby setting
 .ruby-*
 .rvmrc
+
+# Local agent instructions, not part of the gem
+CLAUDE.md
