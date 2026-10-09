@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+# Publish the release whose "Release <version>" commit is at HEAD.
+#
+# Usage: script/release [--dry-run] [--skip-e2e] [--notes FILE]
+#
+#   --dry-run   run the checks, unit specs and (unless skipped) e2e, then stop
+#               before anything is pushed or published
+#   --skip-e2e  skip the e2e smoke run against the installed gem
+#   --notes     GitHub release notes; defaults to the version's CHANGELOG section
+#
+# Version choice, the CHANGELOG entry and the Release commit stay manual.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+dry_run=0
+skip_e2e=0
+notes_file=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --dry-run) dry_run=1 ;;
+    --skip-e2e) skip_e2e=1 ;;
+    --notes) notes_file="${2:?--notes needs a file}"; shift ;;
+    *) echo "unknown option: $1" >&2; exit 2 ;;
+  esac
+  shift
+done
+
+step() { printf '\n==> %s\n' "$*"; }
+fail() { echo "release: $*" >&2; exit 1; }
+
+version=$(ruby -e 'require "./lib/vagrant-qemu/version"; print VagrantPlugins::QEMU::VERSION')
+tag="v$version"
+gem_file="pkg/vagrant-qemu-$version.gem"
+
+# Prints the CHANGELOG section for $version, without its heading.
+changelog_section() {
+  awk -v v="$version" '
+    $0 ~ "^# " v "( |$)" { found = 1; next }
+    found && /^# / { exit }
+    found { print }
+  ' CHANGELOG.md | sed -e '/./,$!d'
+}
+
+step "Checks for $tag"
+[ "$(git rev-parse --abbrev-ref HEAD)" = "master" ] || fail "not on master"
+[ -z "$(git status --porcelain)" ] || fail "working tree is not clean"
+[ "$(git log -1 --format=%s)" = "Release $version" ] || fail "HEAD is not the \"Release $version\" commit"
+git fetch -q --no-tags origin master
+[ "$(git rev-list --count HEAD..origin/master)" = "0" ] || fail "origin/master has commits not in HEAD"
+[ -n "$(changelog_section)" ] || fail "CHANGELOG.md has no \"# $version\" section"
+[ -z "$notes_file" ] || [ -s "$notes_file" ] || fail "notes file $notes_file is missing or empty"
+if git rev-parse -q --verify "refs/tags/$tag" >/dev/null || [ -n "$(git ls-remote origin "refs/tags/$tag")" ]; then
+  fail "tag $tag already exists"
+fi
+published=$(curl -fsS https://rubygems.org/api/v1/versions/vagrant-qemu.json) || fail "cannot reach rubygems.org"
+if printf '%s' "$published" | ruby -rjson -e 'exit(JSON.parse(STDIN.read).any? { |v| v["number"] == ARGV[0] } ? 0 : 1)' "$version"; then
+  fail "vagrant-qemu $version is already on rubygems.org"
+fi
+gh auth status >/dev/null 2>&1 || fail "gh is not logged in"
+! gh release view "$tag" >/dev/null 2>&1 || fail "GitHub release $tag already exists"
+creds=$(ruby -e 'require "rubygems"; print Gem.configuration.credentials_path')
+[ -s "$creds" ] || fail "no rubygems credentials at $creds"
+
+step "Unit specs"
+bundle exec rake spec:unit
+
+step "Build and install $gem_file"
+bundle exec rake build
+vagrant plugin install "./$gem_file"
+
+if [ "$skip_e2e" = 0 ]; then
+  step "e2e smoke against the installed gem"
+  TEST_QEMU=1 bundle exec rspec spec/e2e/smoke_spec.rb spec/e2e/socket_network_spec.rb
+fi
+
+if [ "$dry_run" = 1 ]; then
+  step "Dry run: stopping before push and publish"
+  exit 0
+fi
+
+step "Push master"
+git push origin master
+
+step "Tag, push tag, publish gem (rake release)"
+bundle exec rake release
+
+step "GitHub release $tag"
+if [ -z "$notes_file" ]; then
+  notes_file=$(mktemp)
+  trap 'rm -f "$notes_file"' EXIT
+  changelog_section > "$notes_file"
+fi
+gh release create "$tag" --title "$tag" --notes-file "$notes_file" "$gem_file"
+
+# rake release tags before it pushes the gem, so check every piece.
+step "Verify"
+ok=1
+latest=""
+for _ in 1 2 3 4 5 6; do
+  latest=$(curl -fsS https://rubygems.org/api/v1/versions/vagrant-qemu/latest.json | ruby -rjson -e 'print JSON.parse(STDIN.read)["version"]') || true
+  [ "$latest" = "$version" ] && break
+  sleep 10
+done
+[ "$latest" = "$version" ] && echo "ok   rubygems: $version" || { echo "FAIL rubygems: latest is '$latest'"; ok=0; }
+git fetch -q --no-tags origin master
+[ "$(git rev-parse origin/master)" = "$(git rev-parse HEAD)" ] && echo "ok   master pushed" || { echo "FAIL master: origin/master is not HEAD"; ok=0; }
+remote_tag=$(git ls-remote origin "refs/tags/$tag^{}" | cut -f1)
+[ -z "$remote_tag" ] && remote_tag=$(git ls-remote origin "refs/tags/$tag" | cut -f1)
+[ "$remote_tag" = "$(git rev-parse HEAD)" ] && echo "ok   tag $tag pushed" || { echo "FAIL tag: remote $tag is '$remote_tag'"; ok=0; }
+assets=$(gh release view "$tag" --json assets -q '[.assets[].name] | join(",")' 2>/dev/null || true)
+[ "$assets" = "vagrant-qemu-$version.gem" ] && echo "ok   GitHub release with $assets" || { echo "FAIL GitHub release assets: '$assets'"; ok=0; }
+
+[ "$ok" = 1 ] || fail "release $tag is incomplete; see FAIL lines above"
+step "Released $tag"
