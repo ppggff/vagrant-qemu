@@ -205,3 +205,21 @@
   arguments for the private network NIC and the command line assembly blew up
   before QEMU was launched. Setting `net_mode` explicitly (e.g.
   `:vmnet_shared`) was the workaround. (#40)
+
+# 0.6.4 (2026-10-09)
+
+* Fix `vagrant up` failing with `ForwardPortCollision` ("The forwarded port
+  to 50022 is already in use") on macOS 27 even when nothing listens on the
+  port. A non-blocking connect to a closed local port there reports success
+  on the retry, so Vagrant's port check treated every port as in use. The
+  provider now supplies a port check that confirms the connection; results on
+  other systems are unchanged, and Windows keeps Vagrant's own check.
+* Quote MAC addresses in the generated cloud-init `network-config`. cloud-init
+  reads it as YAML 1.1, where an unquoted MAC whose octets are all decimal and
+  below 60 (e.g. `52:54:00:26:47:05`) is a base-60 integer. With
+  `advanced_network`, about 1.3% of generated MACs hit this, and the guest's
+  network config was rejected, which could leave the VM unreachable over SSH
+  on first boot. (#82, thanks @SamuelBoerlin)
+* README: bring a `socket_opts` `listen=`/`connect=` pair up with
+  `vagrant up --no-parallel`. A plain `vagrant up` boots both machines in
+  parallel, and if the connector starts first the link never comes up.
