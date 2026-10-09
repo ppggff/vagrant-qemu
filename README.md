@@ -329,7 +329,7 @@ For VM-to-VM networking on macOS without sudo, use `:socket` with a `listen`/`co
 ```ruby
 Vagrant.configure("2") do |config|
   PORT = 12399
-  # vm1 listens; define it first so it is up before vm2 connects.
+  # vm1 listens, vm2 connects to it.
   config.vm.define "vm1" do |c|
     c.vm.box = "perk/ubuntu-2204-arm64"  # an aarch64 cloud-init box
     c.vm.network "private_network", ip: "192.168.105.51"
@@ -353,6 +353,8 @@ Vagrant.configure("2") do |config|
   end
 end
 ```
+
+Bring it up with `vagrant up --no-parallel`. The provider boots machines in parallel by default, so a plain `vagrant up` can start vm2 before vm1 is listening, and the link never comes up.
 
 A single VM with a static IP (vmnet is the default backend on macOS when `net_mode` is `:auto`):
 
@@ -415,7 +417,7 @@ Notes:
 * The Linux `:tap` backend expects a pre-created tap device attached to a bridge, e.g.:
   `sudo ip tuntap add tap0 mode tap && sudo ip link set tap0 master br0 && sudo ip link set tap0 up`
 * `socket_opts = "mcast=..."` gives N-way VM-to-VM on Linux/Windows, but does **not** work on macOS: QEMU binds the netdev socket to the multicast group address, which the Darwin socket stack refuses to send from (`EADDRNOTAVAIL`). On macOS use a `listen`/`connect` pair (no root) or vmnet (sudo).
-* `socket_opts = "listen=..."` / `"connect=..."` is a point-to-point QEMU TCP link and connects **exactly two** VMs (QEMU's listening socket accepts a single connection — it is not a hub). You choose which VM listens and which connects. The listener must be running before the connector starts, so define the listener first and bring the environment up together (`vagrant up`); starting a connector alone, or reloading the listener, drops the link.
+* `socket_opts = "listen=..."` / `"connect=..."` is a point-to-point QEMU TCP link and connects **exactly two** VMs (QEMU's listening socket accepts a single connection — it is not a hub). You choose which VM listens and which connects. The listener must be running before the connector starts, so define the listener first and bring the environment up with `vagrant up --no-parallel` (a plain `vagrant up` boots both in parallel and may start the connector first: both VMs come up with their IPs, but no traffic passes). Starting a connector alone, or reloading the listener, drops the link.
 
 Platform support:
 

@@ -165,8 +165,7 @@ describe "advanced networking over socket listen/connect (no root)", :requires_q
   it "two VMs communicate over a user-defined listen/connect socket" do
     File.write(@work_dir.join("Vagrantfile"), <<~RUBY)
       Vagrant.configure("2") do |config|
-        # The user picks the roles: vm1 listens, vm2 connects. vm1 is defined
-        # first so it boots first and is listening before vm2 dials in.
+        # The user picks the roles: vm1 listens, vm2 connects.
         config.vm.define "vm1" do |c|
           c.vm.box = "#{test_box_cloudinit}"
           c.vm.box_check_update = false
@@ -197,7 +196,10 @@ describe "advanced networking over socket listen/connect (no root)", :requires_q
       end
     RUBY
 
-    vagrant_up(@work_dir, timeout: 600)
+    # The provider boots machines in parallel; --no-parallel follows the
+    # definition order, so vm1 is listening before vm2 connects.
+    result = run_vagrant_cmd("up", "--provider=qemu", "--no-parallel", cwd: @work_dir, timeout: 600)
+    expect(result[:exit_code]).to eq(0), result[:stderr]
 
     # vm1 (listener) pings vm2 (connector) over the link. Assert on the ping
     # output itself, not just an exit code that can pass vacuously.
