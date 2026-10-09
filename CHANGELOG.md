@@ -237,3 +237,14 @@
   mappings for Vagrant port, including corrected SSH, without config guesses.
 * Long-root Linux native lifecycle and Windows endpoint cleanup diagnostics;
   read-only standard port command on the existing live Windows Controller.
+
+# 0.6.3.vmlab.5
+
+* Register Windows remove_public_key guest capability to revoke each supplied
+  nonempty RSA/Ed25519 bootstrap line; reuse the unchanged Vagrant WinSSH
+  authorized_keys download/upload and ACL-preserving replacement helper.
+* Native Windows file/ACL and focused Ruby regressions cover multiline removal,
+  unrelated-key retention and unsupported communicator handling. Installed-guest
+  unique-key, old-bootstrap rejection and ACL qualification remain separate.
+* Preserve .4 lifecycle/ports/pflash ownership; native diagnostic launch uses
+  two CPUs/native APIC and explicit governed DLL runtime environment on Windows.

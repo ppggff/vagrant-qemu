@@ -52,6 +52,10 @@ module VagrantPlugins
         require_relative "cap/forwarded_ports"
         Cap::ForwardedPorts
       end
+      guest_capability(:windows, :remove_public_key) do
+        require_relative "cap/windows_public_key"
+        Cap::WindowsPublicKey
+      end
 
       provider(:qemu, box_format: "qemu", box_optional: true, parallel: true) do
         # Setup logging and i18n

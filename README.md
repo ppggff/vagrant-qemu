@@ -3,7 +3,7 @@
 This is a Vagrant plugin that adds a simple QEMU provider to Vagrant, allowing Vagrant
 to control and provision machines using QEMU.
 
-## vmlab fork contract (0.6.3.vmlab.4)
+## vmlab fork contract (0.6.3.vmlab.5)
 
 Maintainer: mrmichaeladavis (the vmlab user). This separate Ruby Provider is
 not bundled inside the vmlab skill. It is a diagnostic prerelease, not a claim
@@ -34,15 +34,25 @@ mappings from actual Provider-owned runtime argv -netdev hostfwd entries after
 fresh running state. Thus vagrant port exposes corrected SSH and other TCP
 forwards, not original configured allocations. A missing live record raises;
 stopped Machines report no current ports. Python never reconstructs this map.
-For the qualified Windows diagnostic set machine to
-q35,accel=whpx,kernel-irqchip=off and cpu to max. Snapshot and suspend remain
-unsupported. Halt escalates powerdown, monitor quit, then kill and confirms exit;
-destroy refuses to remove a still-running Machine.
+The current Windows native lifecycle diagnostic uses q35,accel=whpx, cpu max
+and two CPUs with native APIC; it does not force kernel-irqchip=off or mask CPUs.
+Snapshot and suspend remain unsupported. Halt escalates powerdown, monitor
+quit, then kill and confirms exit; destroy refuses a still-running Machine.
 
 Optional qe.serial_log_file is an absolute path for persistent COM1/SAC output.
 The Provider creates its parent directory and adds logfile/logappend=on to its
 existing ser0 chardev. It owns COM1: add only Sidecar COM2, never another COM1.
 The caller owns the log file; halt/reload/destroy do not delete that log.
+
+The standard Windows remove_public_key guest capability removes every supplied
+nonempty stripped line, including the RSA/Ed25519 bootstrap bundle in Vagrant
+2.4.9. It reuses Vagrant's Windows authorized_keys helper unchanged, retaining
+its download/upload, Set-Acl and atomic replacement pipeline. No vendor edit,
+hardcoded bootstrap keys or guest-side cleanup script is used. The user owns
+this temporary override: hashicorp/vagrant issue13849 and PR13850 track the fix.
+Remove it only after a pinned upstream Vagrant release includes per-line removal
+and both native installed-guest key/ACL regressions pass without the override.
+Actual native-file/ACL regression fixtures do not qualify installed guests.
 
 After a confirmed running start, the Provider writes its own observer document
 at <machine.env.tmp_path>/vagrant-qemu/<machine.id>/runtime.json. Schema 1 has

@@ -10,7 +10,7 @@ describe VagrantPlugins::QEMU::Driver, "native local lifecycle", :requires_nativ
       config.finalize!
       opts = config.instance_variables.to_h { |key| [key.to_s.delete_prefix("@").to_sym, config.instance_variable_get(key)] }.merge(
         qemu_bin: ENV.fetch("QEMU_BINARY", "C:/Program Files/qemu/qemu-system-x86_64.exe"),
-        machine: Vagrant::Util::Platform.windows? ? "q35,accel=whpx,kernel-irqchip=off" : "q35,accel=kvm", cpu: Vagrant::Util::Platform.windows? ? "max" : "host", memory: "512M", smp: "1",
+        machine: ENV.fetch("QEMU_MACHINE", Vagrant::Util::Platform.windows? ? "q35,accel=whpx" : "q35,accel=kvm"), cpu: Vagrant::Util::Platform.windows? ? "max" : "host", memory: "512M", smp: ENV.fetch("QEMU_SMP", "2"),
         firmware: ENV.fetch("QEMU_FIRMWARE", "C:/Program Files/qemu/share/edk2-x86_64-code.fd"),
         efi_vars: ENV.fetch("QEMU_EFI_VARS", "C:/Program Files/qemu/share/edk2-i386-vars.fd"),
         image_path: [], ports: [], net_device: nil, drive_interface: nil, serial_log_file: dir.join("sac.log").to_s)
@@ -23,6 +23,9 @@ describe VagrantPlugins::QEMU::Driver, "native local lifecycle", :requires_nativ
         allow(driver).to receive(:execute).and_wrap_original do |original, *cmd, **kwargs|
           puts "Provider argv=#{cmd.to_json}"
           original.call(*cmd, **kwargs)
+        rescue VagrantPlugins::QEMU::Errors::ExecuteError
+          puts "Native QEMU stderr=#{driver.tmp_dir.join(id, 'qemu.stderr.log').read}"
+          raise
         end
         driver.start(opts)
         expect(driver.running?).to eq(true)
