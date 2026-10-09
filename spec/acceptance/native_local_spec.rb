@@ -3,6 +3,8 @@ require "spec_helper"
 describe VagrantPlugins::QEMU::Driver, "native local lifecycle", :requires_native_qemu do
   it "boots native pflash, halts through AF_UNIX, reloads and force halts without an orphan" do
     with_temp_dir do |dir|
+      dir = dir.join("long-machine-root-" + "x" * 140) unless Vagrant::Util::Platform.windows?
+      FileUtils.mkdir_p(dir)
       config = VagrantPlugins::QEMU::Config.new
       config.arch = "x86_64"
       config.finalize!
@@ -34,13 +36,17 @@ describe VagrantPlugins::QEMU::Driver, "native local lifecycle", :requires_nativ
         expect(runtime.fetch("firmware")).to eq(dir.join("data", id, "firmware.fd").to_s)
         expect(runtime.fetch("efi_vars")).to eq(dir.join("data", id, "efi-vars.fd").to_s)
         puts "Provider runtime=#{JSON.generate(runtime)}"
-        serial_path = Vagrant::Util::Platform.windows? ? driver.send(:local_socket, 'serial') : driver.tmp_dir.join(id, "qemu_socket_serial").to_s
+        serial_path = runtime.fetch("serial").fetch("path")
+        expect(serial_path.bytesize).to be < 108
+        expect(runtime.fetch("control").fetch("path").bytesize).to be < 108
         2.times { Socket.unix(serial_path) { |socket| expect(socket).not_to be_closed } }
         first_pid = driver.send(:process_id)
         puts "Native pflash launch PID=#{first_pid}"
         expect(driver).not_to receive(:force_kill)
         driver.stop(graceful_timeout: 1)
         expect(driver.running?).to eq(false)
+        expect(File.exist?(runtime.fetch("control").fetch("path"))).to eq(false)
+        expect(File.exist?(serial_path)).to eq(false)
         expect(runtime_path).to exist
         expect(File.read(opts[:serial_log_file])).to start_with("retained COM1 log\n")
         puts "Local AF_UNIX halt confirmed PID=#{first_pid} gone"
@@ -65,6 +71,8 @@ describe VagrantPlugins::QEMU::Driver, "native local lifecycle", :requires_nativ
         puts "Forced halt confirmed PID=#{second_pid} gone; NVRAM retained across reload"
         driver.delete
         expect(dir.join("data", id)).not_to exist
+        expect(File.exist?(runtime.fetch("control").fetch("path"))).to eq(false)
+        expect(File.exist?(serial_path)).to eq(false)
         expect(runtime_path).not_to exist
       ensure
         RSpec::Mocks.space.proxy_for(driver).reset

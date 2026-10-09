@@ -3,7 +3,7 @@
 This is a Vagrant plugin that adds a simple QEMU provider to Vagrant, allowing Vagrant
 to control and provision machines using QEMU.
 
-## vmlab fork contract (0.6.3.vmlab.3)
+## vmlab fork contract (0.6.3.vmlab.4)
 
 Maintainer: mrmichaeladavis (the vmlab user). This separate Ruby Provider is
 not bundled inside the vmlab skill. It is a diagnostic prerelease, not a claim
@@ -22,9 +22,18 @@ use reconnectable local AF_UNIX sockets, not TCP; leave control_port and
 debug_port nil. Vagrant's embedded Windows Ruby supports AF_UNIX even if the
 host Python does not. Windows socket names live in the OS temporary directory:
 vq-<first 24 hex SHA256(expanded data_dir + vm_id)>-monitor.sock and -serial.sock.
-Linux continues to use local Unix sockets when both ports are nil.
+POSIX endpoints are /tmp/vq-<same 24hex digest>/{monitor,serial}.sock in a
+Provider-owned nonsymlink directory, current-user ownership and mode0700.
+They are independent of arbitrary Machine/VAGRANT_HOME/TMPDIR lengths. Data,
+runtime.json and firmware remain Machine-scoped. Halt/destroy remove only owned
+live sockets after confirmed process exit, retaining the halt observer record.
 SSH forwards bind ssh_host (default 127.0.0.1); other forwarded ports with no
 host_ip bind 127.0.0.1. Explicit host_ip is honored for Controller reachability.
+The standard Vagrant forwarded_ports capability reports integer host=>guest
+mappings from actual Provider-owned runtime argv -netdev hostfwd entries after
+fresh running state. Thus vagrant port exposes corrected SSH and other TCP
+forwards, not original configured allocations. A missing live record raises;
+stopped Machines report no current ports. Python never reconstructs this map.
 For the qualified Windows diagnostic set machine to
 q35,accel=whpx,kernel-irqchip=off and cpu to max. Snapshot and suspend remain
 unsupported. Halt escalates powerdown, monitor quit, then kill and confirms exit;

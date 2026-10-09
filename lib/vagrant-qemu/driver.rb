@@ -53,7 +53,7 @@ module VagrantPlugins
         raise Errors::ConfigError, err: "Cannot delete a running QEMU Machine" if running?
         if created?
           id_dir = @data_dir.join(@vm_id)
-          [local_socket('monitor'), local_socket('serial')].each { |path| FileUtils.rm_f(path) } if windows?
+          cleanup_local_sockets
           FileUtils.rm_rf(id_dir)
           id_tmp_dir = @tmp_dir.join(@vm_id)
           FileUtils.rm_rf(id_tmp_dir)
@@ -73,6 +73,7 @@ module VagrantPlugins
 
           id_tmp_dir = @tmp_dir.join(@vm_id)
           FileUtils.mkdir_p(id_tmp_dir)
+          prepare_local_sockets unless windows?
 
           # Persist only the runtime state we need to read back later
           persisted_state = {
@@ -86,7 +87,7 @@ module VagrantPlugins
           if !options[:control_port].nil?
             control_socket = "port=#{options[:control_port]},host=localhost,ipv4=on"
           else
-            unix_socket_path = id_tmp_dir.join("qemu_socket").to_s
+            unix_socket_path = local_socket('monitor')
             control_socket = "path=#{unix_socket_path}"
           end
 
@@ -94,7 +95,7 @@ module VagrantPlugins
           if !options[:debug_port].nil?
             debug_socket = "port=#{options[:debug_port]},host=localhost,ipv4=on"
           else
-            unix_socket_serial_path = id_tmp_dir.join("qemu_socket_serial").to_s
+            unix_socket_serial_path = local_socket('serial')
             debug_socket = "path=#{unix_socket_serial_path}"
           end
 
@@ -243,12 +244,14 @@ module VagrantPlugins
           opts = {:detach => options[:no_daemonize] || windows?}
           execute(*cmd, **opts)
           if running?
-            control = options[:control_port] ? {transport: "tcp", host: "localhost", port: options[:control_port], protocol: "hmp"} : {transport: "unix", path: windows? ? local_socket('monitor') : id_tmp_dir.join("qemu_socket").to_s, protocol: "qmp"}
-            serial = options[:debug_port] ? {transport: "tcp", host: "localhost", port: options[:debug_port], slot: 1} : {transport: "unix", path: windows? ? local_socket('serial') : id_tmp_dir.join("qemu_socket_serial").to_s, slot: 1}
+            control = options[:control_port] ? {transport: "tcp", host: "localhost", port: options[:control_port], protocol: "hmp"} : {transport: "unix", path: local_socket('monitor'), protocol: "qmp"}
+            serial = options[:debug_port] ? {transport: "tcp", host: "localhost", port: options[:debug_port], slot: 1} : {transport: "unix", path: local_socket('serial'), slot: 1}
             firmware = options[:firmware] ? id_dir.join("firmware.fd").to_s : (options[:arch] == "aarch64" && options[:firmware_format] ? id_dir.join("edk2-aarch64-code.fd").to_s : nil)
             efi_vars = options[:firmware] ? id_dir.join("efi-vars.fd").to_s : (options[:arch] == "aarch64" && options[:firmware_format] ? id_dir.join("edk2-arm-vars.fd").to_s : nil)
             runtime = {schema_version: 1, vm_id: @vm_id, pid: process_id, argv: cmd, control: control, serial: serial, firmware: firmware, efi_vars: efi_vars, serial_log_file: options[:serial_log_file]}
             File.write(id_tmp_dir.join("runtime.json"), JSON.pretty_generate(runtime))
+          else
+            cleanup_local_sockets
           end
         end
       end
@@ -276,6 +279,8 @@ module VagrantPlugins
         @logger.warn("VM still running after 'quit'; forcing kill")
         force_kill
         raise Errors::ConfigError, err: "QEMU did not terminate after forced halt" if still_running_after?(5)
+      ensure
+        cleanup_local_sockets unless running?
       end
 
       private
@@ -308,7 +313,49 @@ module VagrantPlugins
       end
 
       def local_socket(channel)
-        Pathname.new(Dir.tmpdir).join("vq-#{Digest::SHA256.hexdigest(@data_dir.expand_path.to_s + @vm_id)[0, 24]}-#{channel}.sock").to_s
+        digest = Digest::SHA256.hexdigest(@data_dir.expand_path.to_s + @vm_id)[0, 24]
+        return Pathname.new(Dir.tmpdir).join("vq-#{digest}-#{channel}.sock").to_s if windows?
+        File.join("/tmp", "vq-#{digest}", "#{channel}.sock")
+      end
+
+      def validate_socket_directory(directory)
+        stat = File.lstat(directory)
+        unless stat.directory? && !stat.symlink? && stat.uid == Process.euid && stat.mode & 0777 == 0700
+          raise Errors::ConfigError, err: "Unsafe Provider socket directory #{directory}"
+        end
+      end
+
+      def prepare_local_sockets
+        directory = File.dirname(local_socket('monitor'))
+        begin
+          Dir.mkdir(directory, 0700)
+        rescue Errno::EEXIST
+        end
+        validate_socket_directory(directory)
+        ['monitor', 'serial'].each do |channel|
+          path = local_socket(channel)
+          next unless File.exist?(path) || File.symlink?(path)
+          raise Errors::ConfigError, err: "Not an owned socket #{path}" unless File.lstat(path).socket?
+          File.unlink(path)
+        end
+      end
+
+      def cleanup_local_sockets
+        return if running?
+        if windows?
+          [local_socket('monitor'), local_socket('serial')].each { |path| FileUtils.rm_f(path) }
+        else
+          directory = File.dirname(local_socket('monitor'))
+          return unless File.exist?(directory) || File.symlink?(directory)
+          validate_socket_directory(directory)
+          ['monitor', 'serial'].each do |channel|
+            path = local_socket(channel)
+            next unless File.exist?(path) || File.symlink?(path)
+            raise Errors::ConfigError, err: "Not an owned socket #{path}" unless File.lstat(path).socket?
+            File.unlink(path)
+          end
+          Dir.rmdir(directory)
+        end
       end
 
       def process_id
@@ -338,7 +385,7 @@ module VagrantPlugins
       def send_monitor(options, command)
         if options[:control_port].nil?
           Timeout.timeout(5) do
-            path = windows? ? local_socket('monitor') : @tmp_dir.join(@vm_id, "qemu_socket").to_s
+            path = local_socket('monitor')
             Socket.unix(path) do |pipe|
               JSON.parse(pipe.gets)
               pipe.puts(JSON.generate(execute: "qmp_capabilities"))

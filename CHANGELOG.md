@@ -227,3 +227,13 @@
 * Clean cutover box_format and exported metadata provider identity to qemu.
   Canonical qemu boxes are consumed directly; no libvirt alias or relabeling.
 * Registration and single/multi-disk export metadata regression coverage.
+
+# 0.6.3.vmlab.4
+
+* Short secure per-Machine POSIX monitor/COM1 sockets independent of Lab roots;
+  actual runtime endpoints shared by launch/halt/observer and confirmed-exit
+  cleanup. Windows already used independent short OS-temp paths, preserved.
+* Standard forwarded_ports capability exposes actual generated host=>guest
+  mappings for Vagrant port, including corrected SSH, without config guesses.
+* Long-root Linux native lifecycle and Windows endpoint cleanup diagnostics;
+  read-only standard port command on the existing live Windows Controller.
