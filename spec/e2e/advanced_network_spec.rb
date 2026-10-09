@@ -16,6 +16,7 @@ describe "advanced networking end-to-end", :requires_vmnet do
   it "VM gets the configured static IP with the default net_mode" do
     File.write(@work_dir.join("Vagrantfile"), <<~RUBY)
       Vagrant.configure("2") do |config|
+        #{snapd_fast_stop}
         config.vm.box = "#{test_box_cloudinit}"
         config.vm.box_check_update = false
         config.vm.synced_folder ".", "/vagrant", disabled: true
@@ -35,6 +36,7 @@ describe "advanced networking end-to-end", :requires_vmnet do
   it "host can ping the VM IP" do
     File.write(@work_dir.join("Vagrantfile"), <<~RUBY)
       Vagrant.configure("2") do |config|
+        #{snapd_fast_stop}
         config.vm.box = "#{test_box_cloudinit}"
         config.vm.box_check_update = false
         config.vm.synced_folder ".", "/vagrant", disabled: true
@@ -58,6 +60,7 @@ describe "advanced networking end-to-end", :requires_vmnet do
     user_mac = "52:54:00:aa:bb:cc"
     File.write(@work_dir.join("Vagrantfile"), <<~RUBY)
       Vagrant.configure("2") do |config|
+        #{snapd_fast_stop}
         config.vm.box = "#{test_box_cloudinit}"
         config.vm.box_check_update = false
         config.vm.synced_folder ".", "/vagrant", disabled: true
@@ -80,6 +83,7 @@ describe "advanced networking end-to-end", :requires_vmnet do
   it "two VMs can communicate via private network" do
     File.write(@work_dir.join("Vagrantfile"), <<~RUBY)
       Vagrant.configure("2") do |config|
+        #{snapd_fast_stop}
         config.vm.define "vm1" do |c|
           c.vm.box = "#{test_box_cloudinit}"
           c.vm.box_check_update = false

@@ -46,6 +46,15 @@ module E2EHelper
     TEST_BOX_CLOUDINIT
   end
 
+  # The cloud-init box starts a snapd auto-refresh on first boot, and stopping
+  # snapd mid-refresh can hold guest shutdown for up to 90s. Destroy follows
+  # right after, so don't wait for it.
+  def snapd_fast_stop
+    <<~RUBY.chomp
+      config.vm.provision "shell", inline: "mkdir -p /etc/systemd/system/snapd.service.d && printf '[Service]\\\\nTimeoutStopSec=5s\\\\n' > /etc/systemd/system/snapd.service.d/e2e-fast-stop.conf && systemctl daemon-reload"
+    RUBY
+  end
+
   def vagrant_up(cwd, provider: "qemu", timeout: 300)
     run_vagrant_cmd("up", "--provider=#{provider}", cwd: cwd, timeout: timeout)
   end

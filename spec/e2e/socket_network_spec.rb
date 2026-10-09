@@ -36,6 +36,7 @@ describe "advanced networking over socket multicast (no root)", :requires_qemu d
     # assignment or cross-VM traffic broke.
     File.write(@work_dir.join("Vagrantfile"), <<~RUBY)
       Vagrant.configure("2") do |config|
+        #{snapd_fast_stop}
         config.vm.box = "#{test_box_cloudinit}"
         config.vm.box_check_update = false
         config.vm.synced_folder ".", "/vagrant", disabled: true
@@ -64,6 +65,7 @@ describe "advanced networking over socket multicast (no root)", :requires_qemu d
     mac = "52:54:00:26:47:05"
     File.write(@work_dir.join("Vagrantfile"), <<~RUBY)
       Vagrant.configure("2") do |config|
+        #{snapd_fast_stop}
         config.vm.box = "#{test_box_cloudinit}"
         config.vm.box_check_update = false
         config.vm.synced_folder ".", "/vagrant", disabled: true
@@ -103,6 +105,7 @@ describe "advanced networking over socket multicast (no root)", :requires_qemu d
 
     File.write(@work_dir.join("Vagrantfile"), <<~RUBY)
       Vagrant.configure("2") do |config|
+        #{snapd_fast_stop}
         config.vm.define "vm1" do |c|
           c.vm.box = "#{test_box_cloudinit}"
           c.vm.box_check_update = false
@@ -165,6 +168,7 @@ describe "advanced networking over socket listen/connect (no root)", :requires_q
   it "two VMs communicate over a user-defined listen/connect socket" do
     File.write(@work_dir.join("Vagrantfile"), <<~RUBY)
       Vagrant.configure("2") do |config|
+        #{snapd_fast_stop}
         # The user picks the roles: vm1 listens, vm2 connects.
         config.vm.define "vm1" do |c|
           c.vm.box = "#{test_box_cloudinit}"

@@ -16,6 +16,7 @@ describe "socket_vmnet advanced networking end-to-end", :requires_socket_vmnet d
   it "VM gets the configured static IP (no sudo)" do
     File.write(@work_dir.join("Vagrantfile"), <<~RUBY)
       Vagrant.configure("2") do |config|
+        #{snapd_fast_stop}
         config.vm.box = "#{test_box_cloudinit}"
         config.vm.box_check_update = false
         config.vm.synced_folder ".", "/vagrant", disabled: true
@@ -36,6 +37,7 @@ describe "socket_vmnet advanced networking end-to-end", :requires_socket_vmnet d
   it "host can ping the VM IP" do
     File.write(@work_dir.join("Vagrantfile"), <<~RUBY)
       Vagrant.configure("2") do |config|
+        #{snapd_fast_stop}
         config.vm.box = "#{test_box_cloudinit}"
         config.vm.box_check_update = false
         config.vm.synced_folder ".", "/vagrant", disabled: true
@@ -56,6 +58,7 @@ describe "socket_vmnet advanced networking end-to-end", :requires_socket_vmnet d
   it "two VMs can communicate via the socket_vmnet private network" do
     File.write(@work_dir.join("Vagrantfile"), <<~RUBY)
       Vagrant.configure("2") do |config|
+        #{snapd_fast_stop}
         config.vm.define "vm1" do |c|
           c.vm.box = "#{test_box_cloudinit}"
           c.vm.box_check_update = false
@@ -100,6 +103,7 @@ describe "socket_vmnet advanced networking end-to-end", :requires_socket_vmnet d
     shim = File.expand_path("support/qemu_no_stream_shim.sh", __dir__)
     File.write(@work_dir.join("Vagrantfile"), <<~RUBY)
       Vagrant.configure("2") do |config|
+        #{snapd_fast_stop}
         config.vm.box = "#{test_box_cloudinit}"
         config.vm.box_check_update = false
         config.vm.synced_folder ".", "/vagrant", disabled: true
