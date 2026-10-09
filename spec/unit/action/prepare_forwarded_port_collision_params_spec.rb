@@ -69,4 +69,36 @@ describe VagrantPlugins::QEMU::Action::PrepareForwardedPortCollisionParams do
 
     expect(ssh_entry[:host]).to eq 60022
   end
+
+  describe "port collision check" do
+    def port_check(windows: false)
+      allow(Vagrant::Util::Platform).to receive(:windows?).and_return(windows)
+      ctx = mock_vagrant_env(networks: [])
+      described_class.new(app, ctx[:env]).call(ctx[:env])
+      ctx[:env][:port_collision_port_check]
+    end
+
+    it "reports a listening port as in use" do
+      server = TCPServer.new("127.0.0.1", 0)
+      expect(port_check.call("127.0.0.1", server.addr[1])).to eq true
+    ensure
+      server&.close
+    end
+
+    it "reports a closed port as free" do
+      server = TCPServer.new("127.0.0.1", 0)
+      port = server.addr[1]
+      server.close
+      expect(port_check.call("127.0.0.1", port)).to eq false
+    end
+
+    it "checks 0.0.0.0 when no host_ip is given" do
+      expect(described_class).to receive(:port_in_use?).with("0.0.0.0", 50022).and_return(false)
+      port_check.call(nil, 50022)
+    end
+
+    it "keeps Vagrant's own check on Windows" do
+      expect(port_check(windows: true)).to be_nil
+    end
+  end
 end
