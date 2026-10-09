@@ -48,8 +48,12 @@ module VagrantPlugins
         require File.expand_path("../cap/disk", __FILE__)
         Cap::Disk
       end
+      provider_capability(:qemu, :forwarded_ports) do
+        require_relative "cap/forwarded_ports"
+        Cap::ForwardedPorts
+      end
 
-      provider(:qemu, box_format: "libvirt", box_optional: true, parallel: true) do
+      provider(:qemu, box_format: "qemu", box_optional: true, parallel: true) do
         # Setup logging and i18n
         setup_logging
         setup_i18n

@@ -205,3 +205,35 @@
   arguments for the private network NIC and the command line assembly blew up
   before QEMU was launched. Setting `net_mode` explicitly (e.g.
   `:vmnet_shared`) was the workaround. (#40)
+
+# 0.6.3.vmlab.1
+
+* Separate vmlab diagnostic prerelease maintained by mrmichaeladavis.
+* Windows detached launch, local AF_UNIX monitor/serial and process-exit checks.
+* Explicit firmware/efi_vars templates with Provider-owned persistent pflash.
+* Loopback-default SSH/forwarded ports and refusal to orphan running Machines.
+
+# 0.6.3.vmlab.2
+
+* Optional serial_log_file adds append logging to owned COM1, not a new slot.
+* After a confirmed start, runtime.json records actual argv/PID/local endpoints
+  and owned firmware/vars paths for read-only observers. Halt retains; destroy
+  removes. This record never replaces Vagrant lifecycle authority.
+* Changed-file regressions and real QEMU11.1 Windows WHPX/Linux KVM diagnostics
+  cover runtime discovery and retained log bytes; no installed SAC/Setup claim.
+
+# 0.6.3.vmlab.3
+
+* Clean cutover box_format and exported metadata provider identity to qemu.
+  Canonical qemu boxes are consumed directly; no libvirt alias or relabeling.
+* Registration and single/multi-disk export metadata regression coverage.
+
+# 0.6.3.vmlab.4
+
+* Short secure per-Machine POSIX monitor/COM1 sockets independent of Lab roots;
+  actual runtime endpoints shared by launch/halt/observer and confirmed-exit
+  cleanup. Windows already used independent short OS-temp paths, preserved.
+* Standard forwarded_ports capability exposes actual generated host=>guest
+  mappings for Vagrant port, including corrected SSH, without config guesses.
+* Long-root Linux native lifecycle and Windows endpoint cleanup diagnostics;
+  read-only standard port command on the existing live Windows Controller.

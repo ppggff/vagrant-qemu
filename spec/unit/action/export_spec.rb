@@ -47,12 +47,12 @@ describe VagrantPlugins::QEMU::Action::Export do
   context "single box disk (v1)" do
     before { FileUtils.touch(@data_dir.join(vm_id, "linked-box.img")) }
 
-    it "flattens the disk to box.img and writes libvirt v1 metadata (no disks[])" do
+    it "flattens the disk to box.img and writes canonical qemu v1 metadata (no disks[])" do
       expect(driver).to receive(:convert_box_disk)
         .with(@data_dir.join(vm_id, "linked-box.img"), @export_dir.join("box.img"))
       described_class.new(app, env).call(env)
 
-      expect(metadata["provider"]).to eq "libvirt"
+      expect(metadata["provider"]).to eq "qemu"
       expect(metadata["format"]).to eq "qcow2"
       expect(metadata["virtual_size"]).to eq 2
       expect(metadata).not_to have_key("disks")
@@ -72,6 +72,7 @@ describe VagrantPlugins::QEMU::Action::Export do
       described_class.new(app, env).call(env)
 
       expect(metadata["disks"]).to eq([{ "path" => "box_1.img" }, { "path" => "box_2.img" }])
+      expect(metadata["provider"]).to eq "qemu"
     end
   end
 

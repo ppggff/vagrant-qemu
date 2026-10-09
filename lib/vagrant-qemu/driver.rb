@@ -2,6 +2,11 @@ require 'log4r'
 require 'childprocess'
 require 'securerandom'
 require 'yaml'
+require 'digest'
+require 'socket'
+require 'fiddle/import'
+require 'json'
+require 'tmpdir'
 
 require "vagrant/util/busy"
 require 'vagrant/util/io'
@@ -9,6 +14,7 @@ require "vagrant/util/safe_chdir"
 require "vagrant/util/subprocess"
 require "vagrant/util/which"
 
+require 'timeout'
 require_relative "plugin"
 require_relative "network"
 
@@ -44,8 +50,10 @@ module VagrantPlugins
       end
 
       def delete
+        raise Errors::ConfigError, err: "Cannot delete a running QEMU Machine" if running?
         if created?
           id_dir = @data_dir.join(@vm_id)
+          cleanup_local_sockets
           FileUtils.rm_rf(id_dir)
           id_tmp_dir = @tmp_dir.join(@vm_id)
           FileUtils.rm_rf(id_tmp_dir)
@@ -65,6 +73,7 @@ module VagrantPlugins
 
           id_tmp_dir = @tmp_dir.join(@vm_id)
           FileUtils.mkdir_p(id_tmp_dir)
+          prepare_local_sockets unless windows?
 
           # Persist only the runtime state we need to read back later
           persisted_state = {
@@ -78,7 +87,7 @@ module VagrantPlugins
           if !options[:control_port].nil?
             control_socket = "port=#{options[:control_port]},host=localhost,ipv4=on"
           else
-            unix_socket_path = id_tmp_dir.join("qemu_socket").to_s
+            unix_socket_path = local_socket('monitor')
             control_socket = "path=#{unix_socket_path}"
           end
 
@@ -86,7 +95,7 @@ module VagrantPlugins
           if !options[:debug_port].nil?
             debug_socket = "port=#{options[:debug_port]},host=localhost,ipv4=on"
           else
-            unix_socket_serial_path = id_tmp_dir.join("qemu_socket_serial").to_s
+            unix_socket_serial_path = local_socket('serial')
             debug_socket = "path=#{unix_socket_serial_path}"
           end
 
@@ -97,7 +106,7 @@ module VagrantPlugins
             if options[:qemu_bin].kind_of?(Array)
               cmd += options[:qemu_bin]
             else
-              cmd += %W(#{options[:qemu_bin]})
+              cmd << options[:qemu_bin]
             end
           end
 
@@ -126,7 +135,7 @@ module VagrantPlugins
 
               # NIC 0: user-mode
               cmd += %W(-device #{options[:net_device]},netdev=net0,mac=#{mac0})
-              hostfwd = "hostfwd=tcp::#{options[:ssh_port]}-:22"
+              hostfwd = "hostfwd=tcp:#{options[:ssh_host] || '127.0.0.1'}:#{options[:ssh_port]}-:22"
               options[:ports].each do |v|
                 hostfwd += ",hostfwd=#{v}"
               end
@@ -150,7 +159,7 @@ module VagrantPlugins
               # Single NIC: user-mode only (original behavior, no cloud-init)
               cmd += %W(-device #{options[:net_device]},netdev=net0)
 
-              hostfwd = "hostfwd=tcp::#{options[:ssh_port]}-:22"
+              hostfwd = "hostfwd=tcp:#{options[:ssh_host] || '127.0.0.1'}:#{options[:ssh_port]}-:22"
               options[:ports].each do |v|
                 hostfwd += ",hostfwd=#{v}"
               end
@@ -175,7 +184,10 @@ module VagrantPlugins
               diskid += 1
             end
           end
-          if options[:arch] == "aarch64" && !options[:firmware_format].nil?
+          if options[:firmware]
+            cmd += ["-drive", "if=pflash,format=raw,unit=0,file=#{id_dir.join('firmware.fd')},readonly=on"]
+            cmd += ["-drive", "if=pflash,format=raw,unit=1,file=#{id_dir.join('efi-vars.fd')}"]
+          elsif options[:arch] == "aarch64" && !options[:firmware_format].nil?
             fm1_path = id_dir.join("edk2-aarch64-code.fd").to_s
             fm2_path = id_dir.join("edk2-arm-vars.fd").to_s
             cmd += %W(-drive if=pflash,format=#{options[:firmware_format]},file=#{fm1_path},readonly=on)
@@ -196,12 +208,26 @@ module VagrantPlugins
 
           # control
           pid_file = id_tmp_dir.join("qemu.pid").to_s
-          cmd += %W(-chardev socket,id=mon0,#{control_socket},server=on,wait=off)
-          cmd += %W(-mon chardev=mon0,mode=readline)
-          cmd += %W(-chardev socket,id=ser0,#{debug_socket},server=on,wait=off)
+          if windows?
+            raise Errors::ConfigError, err: "Windows monitor/serial must use local sockets" if options[:control_port] || options[:debug_port]
+            cmd += ["-chardev", "socket,id=mon0,path=#{local_socket('monitor')},server=on,wait=off"]
+          else
+            cmd += %W(-chardev socket,id=mon0,#{control_socket},server=on,wait=off)
+          end
+          cmd += ["-mon", "chardev=mon0,mode=#{options[:control_port] ? 'readline' : 'control'}"]
+          serial_log = ""
+          if options[:serial_log_file]
+            FileUtils.mkdir_p(File.dirname(options[:serial_log_file]))
+            serial_log = ",logfile=#{options[:serial_log_file]},logappend=on"
+          end
+          if windows?
+            cmd += ["-chardev", "socket,id=ser0,path=#{local_socket('serial')},server=on,wait=off#{serial_log}"]
+          else
+            cmd += %W(-chardev socket,id=ser0,#{debug_socket},server=on,wait=off#{serial_log})
+          end
           cmd += %W(-serial chardev:ser0)
           cmd += %W(-pidfile #{pid_file})
-          if !options[:no_daemonize]
+          if !options[:no_daemonize] && !windows?
             cmd += %W(-daemonize)
           end
 
@@ -215,8 +241,18 @@ module VagrantPlugins
           # (empty prefix otherwise -> zero difference from the current path).
           cmd = launch_prefix + cmd
 
-          opts = {:detach => options[:no_daemonize]}
+          opts = {:detach => options[:no_daemonize] || windows?}
           execute(*cmd, **opts)
+          if running?
+            control = options[:control_port] ? {transport: "tcp", host: "localhost", port: options[:control_port], protocol: "hmp"} : {transport: "unix", path: local_socket('monitor'), protocol: "qmp"}
+            serial = options[:debug_port] ? {transport: "tcp", host: "localhost", port: options[:debug_port], slot: 1} : {transport: "unix", path: local_socket('serial'), slot: 1}
+            firmware = options[:firmware] ? id_dir.join("firmware.fd").to_s : (options[:arch] == "aarch64" && options[:firmware_format] ? id_dir.join("edk2-aarch64-code.fd").to_s : nil)
+            efi_vars = options[:firmware] ? id_dir.join("efi-vars.fd").to_s : (options[:arch] == "aarch64" && options[:firmware_format] ? id_dir.join("edk2-arm-vars.fd").to_s : nil)
+            runtime = {schema_version: 1, vm_id: @vm_id, pid: process_id, argv: cmd, control: control, serial: serial, firmware: firmware, efi_vars: efi_vars, serial_log_file: options[:serial_log_file]}
+            File.write(id_tmp_dir.join("runtime.json"), JSON.pretty_generate(runtime))
+          else
+            cleanup_local_sockets
+          end
         end
       end
 
@@ -242,9 +278,93 @@ module VagrantPlugins
         # 3. Last resort: SIGKILL the QEMU process (no flush/cleanup).
         @logger.warn("VM still running after 'quit'; forcing kill")
         force_kill
+        raise Errors::ConfigError, err: "QEMU did not terminate after forced halt" if still_running_after?(5)
+      ensure
+        cleanup_local_sockets unless running?
       end
 
       private
+
+      def windows?
+        Vagrant::Util::Platform.windows?
+      end
+
+      def windows_running?(pid)
+        api = windows_process_api
+        handle = api.OpenProcess(0x00100000, 0, pid)
+        return false if handle.to_i.zero?
+        begin
+          result = api.WaitForSingleObject(handle, 0)
+          raise Errors::ConfigError, err: "Cannot determine QEMU process state" unless [0, 258].include?(result)
+          result == 258
+        ensure
+          api.CloseHandle(handle)
+        end
+      end
+
+      def windows_process_api
+        @windows_process_api ||= Module.new do
+          extend Fiddle::Importer
+          dlload "kernel32.dll"
+          extern "void* OpenProcess(unsigned long, int, unsigned long)"
+          extern "unsigned long WaitForSingleObject(void*, unsigned long)"
+          extern "int CloseHandle(void*)"
+        end
+      end
+
+      def local_socket(channel)
+        digest = Digest::SHA256.hexdigest(@data_dir.expand_path.to_s + @vm_id)[0, 24]
+        return Pathname.new(Dir.tmpdir).join("vq-#{digest}-#{channel}.sock").to_s if windows?
+        File.join("/tmp", "vq-#{digest}", "#{channel}.sock")
+      end
+
+      def validate_socket_directory(directory)
+        stat = File.lstat(directory)
+        unless stat.directory? && !stat.symlink? && stat.uid == Process.euid && stat.mode & 0777 == 0700
+          raise Errors::ConfigError, err: "Unsafe Provider socket directory #{directory}"
+        end
+      end
+
+      def prepare_local_sockets
+        directory = File.dirname(local_socket('monitor'))
+        begin
+          Dir.mkdir(directory, 0700)
+        rescue Errno::EEXIST
+        end
+        validate_socket_directory(directory)
+        ['monitor', 'serial'].each do |channel|
+          path = local_socket(channel)
+          next unless File.exist?(path) || File.symlink?(path)
+          raise Errors::ConfigError, err: "Not an owned socket #{path}" unless File.lstat(path).socket?
+          File.unlink(path)
+        end
+      end
+
+      def cleanup_local_sockets
+        return if running?
+        if windows?
+          [local_socket('monitor'), local_socket('serial')].each { |path| FileUtils.rm_f(path) }
+        else
+          directory = File.dirname(local_socket('monitor'))
+          return unless File.exist?(directory) || File.symlink?(directory)
+          validate_socket_directory(directory)
+          ['monitor', 'serial'].each do |channel|
+            path = local_socket(channel)
+            next unless File.exist?(path) || File.symlink?(path)
+            raise Errors::ConfigError, err: "Not an owned socket #{path}" unless File.lstat(path).socket?
+            File.unlink(path)
+          end
+          Dir.rmdir(directory)
+        end
+      end
+
+      def process_id
+        path = @tmp_dir.join(@vm_id, "qemu.pid")
+        return nil unless path.file?
+        text = File.read(path).strip
+        return nil unless text.match?(/\A[1-9][0-9]*\z/)
+        Integer(text)
+      end
 
       # Prefer the control_port the VM was actually started with (persisted
       # in options.yml) so halt still works after a Vagrantfile edit.
@@ -263,15 +383,25 @@ module VagrantPlugins
       # socket may already be gone (e.g. QEMU exited from a prior command), so
       # connection errors are swallowed.
       def send_monitor(options, command)
-        if !options[:control_port].nil?
-          Socket.tcp("localhost", options[:control_port], connect_timeout: 5) do |sock|
-            sock.print "#{command}\n"
-            sock.close_write
-            sock.read rescue nil
+        if options[:control_port].nil?
+          Timeout.timeout(5) do
+            path = local_socket('monitor')
+            Socket.unix(path) do |pipe|
+              JSON.parse(pipe.gets)
+              pipe.puts(JSON.generate(execute: "qmp_capabilities"))
+              loop do
+                response = JSON.parse(pipe.gets)
+                break if response.key?("return") || response.key?("error")
+              end
+              pipe.puts(JSON.generate(execute: command))
+              loop do
+                response = JSON.parse(pipe.gets)
+                break if response.key?("return") || response.key?("error")
+              end
+            end
           end
         else
-          unix_socket_path = @tmp_dir.join(@vm_id).join("qemu_socket").to_s
-          Socket.unix(unix_socket_path) do |sock|
+          Socket.tcp("localhost", options[:control_port], connect_timeout: 5) do |sock|
             sock.print "#{command}\n"
             sock.close_write
             sock.read rescue nil
@@ -292,10 +422,8 @@ module VagrantPlugins
       end
 
       def force_kill
-        pid_file = @tmp_dir.join(@vm_id).join("qemu.pid")
-        return unless pid_file.file?
-
-        pid = File.read(pid_file).to_i
+        pid = process_id
+        return unless pid
         begin
           Process.kill("KILL", pid)
         rescue Errno::ESRCH
@@ -329,10 +457,14 @@ module VagrantPlugins
         FileUtils.mkdir_p(id_tmp_dir)
 
         # Prepare firmware
-        if options[:arch] == "aarch64" && !options[:firmware_format].nil?
-          execute("cp", options[:qemu_dir].join("edk2-aarch64-code.fd").to_s, id_dir.join("edk2-aarch64-code.fd").to_s)
-          execute("cp", options[:qemu_dir].join("edk2-arm-vars.fd").to_s, id_dir.join("edk2-arm-vars.fd").to_s)
-          execute("chmod", "644", id_dir.join("edk2-arm-vars.fd").to_s)
+        if options[:firmware]
+          FileUtils.cp(options[:firmware], id_dir.join("firmware.fd"))
+          FileUtils.cp(options[:efi_vars], id_dir.join("efi-vars.fd"))
+          FileUtils.chmod(0644, id_dir.join("efi-vars.fd"))
+        elsif options[:arch] == "aarch64" && !options[:firmware_format].nil?
+          FileUtils.cp(options[:qemu_dir].join("edk2-aarch64-code.fd"), id_dir.join("edk2-aarch64-code.fd"))
+          FileUtils.cp(options[:qemu_dir].join("edk2-arm-vars.fd"), id_dir.join("edk2-arm-vars.fd"))
+          FileUtils.chmod(0644, id_dir.join("edk2-arm-vars.fd"))
         end
 
         # Create image
@@ -370,11 +502,12 @@ module VagrantPlugins
       end
 
       def running?
-        pid_file = @tmp_dir.join(@vm_id).join("qemu.pid")
-        return false if !pid_file.file?
+        pid = process_id
+        return false unless pid
+        return windows_running?(pid) if windows?
 
         begin
-          Process.kill(0, File.read(pid_file).to_i)
+          Process.kill(0, pid)
           true
         rescue Errno::ESRCH
           false
@@ -382,6 +515,18 @@ module VagrantPlugins
       end
 
       def execute(*cmd, **opts, &block)
+        if opts[:detach] && windows?
+          dir = @tmp_dir.join(@vm_id)
+          FileUtils.rm_f(dir.join("qemu.pid"))
+          [local_socket('monitor'), local_socket('serial')].each { |path| FileUtils.rm_f(path) }
+          pid = Process.spawn(*cmd, in: File::NULL, out: dir.join("qemu.stdout.log").to_s, err: dir.join("qemu.stderr.log").to_s, new_pgroup: true, close_others: true)
+          50.times do
+            return "" if process_id == pid && running?
+            sleep 0.1
+          end
+          Process.kill("KILL", pid) rescue Errno::ESRCH
+          raise Errors::ExecuteError, command: cmd.inspect, stderr: File.read(dir.join("qemu.stderr.log")), stdout: File.read(dir.join("qemu.stdout.log"))
+        end
         result = nil
         interrupted = false
 

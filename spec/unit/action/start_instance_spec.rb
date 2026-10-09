@@ -47,7 +47,7 @@ describe VagrantPlugins::QEMU::Action::StartInstance do
       ports = action.forwarded_ports(ctx[:env])
 
       expect(ports.length).to eq 1
-      expect(ports.first).to include("8080")
+      expect(ports.first).to eq("tcp:127.0.0.1:8080-:80")
     end
 
     it "skips disabled ports" do

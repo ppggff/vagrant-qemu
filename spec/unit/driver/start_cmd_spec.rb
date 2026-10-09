@@ -64,12 +64,12 @@ describe VagrantPlugins::QEMU::Driver, "start command line (single NIC)" do
   it "includes -device and -netdev user for single NIC" do
     subject.start(base_options)
     expect(@captured_cmd.join(" ")).to include("-device virtio-net-device,netdev=net0")
-    expect(@captured_cmd.join(" ")).to include("-netdev user,id=net0,hostfwd=tcp::50022-:22")
+    expect(@captured_cmd.join(" ")).to include("-netdev user,id=net0,hostfwd=tcp:127.0.0.1:50022-:22")
   end
 
   it "includes SSH hostfwd" do
     subject.start(base_options)
-    expect(@captured_cmd.join(" ")).to match(/hostfwd=tcp::50022-:22/)
+    expect(@captured_cmd.join(" ")).to include("hostfwd=tcp:127.0.0.1:50022-:22")
   end
 
   it "includes extra forwarded ports" do

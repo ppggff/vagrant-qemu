@@ -33,6 +33,9 @@ module VagrantPlugins
             :debug_port => config.debug_port,
             :no_daemonize => config.no_daemonize,
             :firmware_format => config.firmware_format,
+            :firmware => config.firmware,
+            :efi_vars => config.efi_vars,
+            :serial_log_file => config.serial_log_file,
             :other_default => config.other_default,
             :extra_image_opts => config.extra_image_opts,
             # Advanced networking
@@ -75,7 +78,8 @@ module VagrantPlugins
             # Skip port if it is disabled
             next if options[:disabled]
 
-            result.push("#{options[:protocol]}:#{options[:host_ip]}:#{options[:host]}-#{options[:guest_ip]}:#{options[:guest]}")
+            host_ip = options[:host_ip].to_s.empty? ? "127.0.0.1" : options[:host_ip]
+            result.push("#{options[:protocol]}:#{host_ip}:#{options[:host]}-#{options[:guest_ip]}:#{options[:guest]}")
           end
 
           result

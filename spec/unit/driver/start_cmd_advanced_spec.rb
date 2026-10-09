@@ -58,7 +58,7 @@ describe VagrantPlugins::QEMU::Driver, "start command line (dual NIC)" do
   it "NIC 0 is still user-mode with hostfwd" do
     subject.start(advanced_options)
     cmd_str = @captured_cmd.join(" ")
-    expect(cmd_str).to include("-netdev user,id=net0,hostfwd=tcp::50022-:22")
+    expect(cmd_str).to include("-netdev user,id=net0,hostfwd=tcp:127.0.0.1:50022-:22")
   end
 
   it "adds NIC 1 with vmnet-shared backend" do

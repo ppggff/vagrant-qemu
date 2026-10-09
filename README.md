@@ -3,6 +3,64 @@
 This is a Vagrant plugin that adds a simple QEMU provider to Vagrant, allowing Vagrant
 to control and provision machines using QEMU.
 
+## vmlab fork contract (0.6.3.vmlab.4)
+
+Maintainer: mrmichaeladavis (the vmlab user). This separate Ruby Provider is
+not bundled inside the vmlab skill. It is a diagnostic prerelease, not a claim
+that Windows Setup, installed guest SSH/key insertion or cross-host boot passed.
+
+Set both qe.firmware and qe.efi_vars to absolute paths of
+pristine raw firmware templates. Import copies them into the Provider-owned
+Machine directory as firmware.fd and efi-vars.fd. Pflash unit 0 is read-only;
+unit 1 is writable and persists over halt/start/reload. Destroy removes both.
+Changing templates on an existing Machine requires destroy/import, never an
+overwrite of its live NVRAM. Do not also supply pflash through extra_qemu_args.
+
+Windows automatically uses a detached process without -daemonize, with stdout
+and stderr files under the Machine temporary directory. Monitor (QMP) and COM1
+use reconnectable local AF_UNIX sockets, not TCP; leave control_port and
+debug_port nil. Vagrant's embedded Windows Ruby supports AF_UNIX even if the
+host Python does not. Windows socket names live in the OS temporary directory:
+vq-<first 24 hex SHA256(expanded data_dir + vm_id)>-monitor.sock and -serial.sock.
+POSIX endpoints are /tmp/vq-<same 24hex digest>/{monitor,serial}.sock in a
+Provider-owned nonsymlink directory, current-user ownership and mode0700.
+They are independent of arbitrary Machine/VAGRANT_HOME/TMPDIR lengths. Data,
+runtime.json and firmware remain Machine-scoped. Halt/destroy remove only owned
+live sockets after confirmed process exit, retaining the halt observer record.
+SSH forwards bind ssh_host (default 127.0.0.1); other forwarded ports with no
+host_ip bind 127.0.0.1. Explicit host_ip is honored for Controller reachability.
+The standard Vagrant forwarded_ports capability reports integer host=>guest
+mappings from actual Provider-owned runtime argv -netdev hostfwd entries after
+fresh running state. Thus vagrant port exposes corrected SSH and other TCP
+forwards, not original configured allocations. A missing live record raises;
+stopped Machines report no current ports. Python never reconstructs this map.
+For the qualified Windows diagnostic set machine to
+q35,accel=whpx,kernel-irqchip=off and cpu to max. Snapshot and suspend remain
+unsupported. Halt escalates powerdown, monitor quit, then kill and confirms exit;
+destroy refuses to remove a still-running Machine.
+
+Optional qe.serial_log_file is an absolute path for persistent COM1/SAC output.
+The Provider creates its parent directory and adds logfile/logappend=on to its
+existing ser0 chardev. It owns COM1: add only Sidecar COM2, never another COM1.
+The caller owns the log file; halt/reload/destroy do not delete that log.
+
+After a confirmed running start, the Provider writes its own observer document
+at <machine.env.tmp_path>/vagrant-qemu/<machine.id>/runtime.json. Schema 1 has
+vm_id, pid, argv (actual generated argument array), control (transport, path,
+protocol), serial (transport, path, slot: 1), firmware, efi_vars, serial_log_file.
+Paths describe the actual channels and live owned firmware copies; optional
+paths are null when absent. Explicit legacy TCP options instead record host and
+port, but are not the vmlab local-only contract. Read this file only after fresh
+Vagrant running status. It is observation, never lifecycle authority. Halt
+retains it for diagnostics; destroy removes it with the Provider temporary data.
+The native tests prove logging preserves existing bytes, not installed SAC
+output. Their max CPU configuration is diagnostic only: it does not qualify
+Windows Setup, XSAVE behavior, or any installed guest.
+
+Removal criteria: switch back to a pinned upstream release only after it includes
+these fixes and native Windows/Linux P1 lifecycle, local-channel, loopback-forward
+and persistent installed-guest pflash evidence passes without fork patches.
+
 **Notes: test with Apple Silicon / M1 and CentOS / Ubuntu aarch64 image**
 
 ## Compatible with
@@ -68,10 +126,12 @@ Notes:
 
 ## Box format
 
-Same as [vagrant-libvirt version-1](https://github.com/vagrant-libvirt/vagrant-libvirt#version-1):
+Canonical provider identity is qemu: metadata.json must contain provider: qemu,
+and this Provider registers box_format: qemu. Disk layout uses qcow2 box.img (v1)
+or disks[] naming box_N.img (v2); it does not alias libvirt provider identity.
 
 * qcow2 image file named `box.img`
-* `metadata.json` file describing box image (provider, virtual_size, format)
+* metadata.json describes provider: qemu, virtual_size, format: qcow2
 * `Vagrantfile` that does default settings
 
 ## Configuration
