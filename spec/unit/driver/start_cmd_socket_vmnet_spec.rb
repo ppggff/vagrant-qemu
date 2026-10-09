@@ -1,6 +1,6 @@
 require "spec_helper"
 
-describe VagrantPlugins::QEMU::Driver, "start command line (socket_vmnet)" do
+describe VagrantPlugins::QEMU::Driver, "start command line (socket_vmnet)", :requires_macos do
   let(:vm_id) { "vq_svtest00042" }
 
   around(:each) do |example|

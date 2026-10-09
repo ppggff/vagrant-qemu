@@ -1,0 +1,132 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    name: Unit specs (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2022]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+      - run: bundle exec rake spec:unit
+
+  guest-smoke:
+    name: QEMU guest smoke (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            arch: amd64
+            qemu: qemu-system-x86_64
+          - os: macos-15
+            arch: arm64
+            qemu: qemu-system-aarch64
+    env:
+      VAGRANT_HOME: /tmp/vagrant-qemu-ci-home
+      CI_TEST_ARCH: ${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+      - name: Install QEMU on Linux
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 qemu-utils libarchive-tools
+      - name: Install QEMU on macOS
+        if: runner.os == 'macOS'
+        run: brew install qemu
+      - name: Install Vagrant and the plugin from this commit
+        run: |
+          gem install vagrant -v 2.4.9 --no-document
+          gem build vagrant-qemu.gemspec
+          vagrant plugin install "$(find "$PWD" -maxdepth 1 -name 'vagrant-qemu-*.gem' -print -quit)"
+      - name: Boot sample guest
+        working-directory: examples/ci-smoke
+        run: |
+          set -euo pipefail
+          {
+            git rev-parse HEAD
+            uname -a
+            vagrant --version
+            ${{ matrix.qemu }} --version
+            vagrant up --provider=qemu --no-provision
+            vagrant ssh -c 'uname -a'
+            vagrant status --machine-readable
+            vagrant halt
+          } 2>&1 | tee "$RUNNER_TEMP/guest-smoke.log"
+      - name: Destroy sample guest
+        if: always()
+        working-directory: examples/ci-smoke
+        run: vagrant destroy -f
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: guest-smoke-${{ matrix.os }}
+          path: ${{ runner.temp }}/guest-smoke.log
+
+  wsl2-guest-smoke:
+    name: QEMU guest smoke (Windows WSL2)
+    runs-on: windows-2025
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Vampire/setup-wsl@d1da7f2c0322a5ee4f24975344f67fc0f5baf364 # v7.0.0
+        with:
+          distribution: Ubuntu-24.04
+      - name: Install Linux tools in WSL2
+        shell: wsl-bash {0}
+        run: |
+          test "$(uname -r | grep -ci microsoft)" -gt 0
+          uname -a
+          apt-get update
+          apt-get install -y ruby-full ruby-dev build-essential qemu-system-x86 qemu-utils libarchive-tools
+      - name: Install the plugin inside WSL2
+        shell: wsl-bash {0}
+        run: |
+          # Keep VM images on the WSL filesystem rather than the Windows-mounted checkout.
+          cp -a . /tmp/vagrant-qemu-ci-source
+          cd /tmp/vagrant-qemu-ci-source
+          gem install vagrant -v 2.4.9 --no-document
+          gem build vagrant-qemu.gemspec
+          VAGRANT_HOME=/tmp/vagrant-qemu-ci-home vagrant plugin install "$(find "$PWD" -maxdepth 1 -name 'vagrant-qemu-*.gem' -print -quit)"
+      - name: Boot sample guest inside WSL2
+        shell: wsl-bash {0}
+        run: |
+          export VAGRANT_HOME=/tmp/vagrant-qemu-ci-home CI_TEST_ARCH=amd64 VAGRANT_DEFAULT_PROVIDER=qemu
+          cd /tmp/vagrant-qemu-ci-source/examples/ci-smoke
+          git rev-parse HEAD
+          uname -a
+          vagrant --version
+          qemu-system-x86_64 --version
+          vagrant up --provider=qemu --no-provision
+          vagrant ssh -c 'uname -a'
+          vagrant status --machine-readable
+          vagrant halt
+      - name: Destroy WSL2 sample guest
+        if: always()
+        shell: wsl-bash {0}
+        run: |
+          if [ -d /tmp/vagrant-qemu-ci-source/examples/ci-smoke ]; then
+            cd /tmp/vagrant-qemu-ci-source/examples/ci-smoke
+            VAGRANT_HOME=/tmp/vagrant-qemu-ci-home VAGRANT_DEFAULT_PROVIDER=qemu vagrant destroy -f
+          fi

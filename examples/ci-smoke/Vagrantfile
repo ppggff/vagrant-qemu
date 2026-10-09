@@ -1,0 +1,17 @@
+architecture = ENV.fetch("CI_TEST_ARCH", "arm64")
+raise "Unsupported CI_TEST_ARCH: #{architecture}" unless %w[amd64 arm64].include?(architecture)
+
+Vagrant.configure("2") do |config|
+  config.vm.box = ENV.fetch("CI_TEST_BOX", "cloud-image/debian-12")
+  config.vm.box_architecture = architecture
+  config.vm.box_check_update = false
+  config.vagrant.plugins = []
+  config.vm.synced_folder ".", "/vagrant", disabled: true
+
+  config.vm.provider "qemu" do |qemu|
+    qemu.arch = architecture == "arm64" ? "aarch64" : "x86_64"
+    qemu.machine = architecture == "arm64" ? "virt,highmem=on,accel=tcg" : "q35,accel=tcg"
+    qemu.cpu = "max"
+    qemu.memory = "1G"
+  end
+end

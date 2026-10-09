@@ -2,6 +2,7 @@ require "pathname"
 require "tmpdir"
 require "fileutils"
 require "yaml"
+require "rbconfig"
 require "rspec/its"
 
 # Ensure vagrant is loaded
@@ -35,6 +36,7 @@ RSpec.configure do |config|
   config.filter_run_excluding :requires_qemu unless ENV["TEST_QEMU"]
   config.filter_run_excluding :requires_vmnet unless ENV["TEST_VMNET"]
   config.filter_run_excluding :requires_socket_vmnet unless ENV["TEST_SOCKET_VMNET"]
+  config.filter_run_excluding :requires_macos unless RbConfig::CONFIG["host_os"] =~ /darwin/
 end
 
 # Helper to create a temporary directory that is cleaned up after the test

@@ -35,7 +35,7 @@ describe VagrantPlugins::QEMU::Network::SocketVmnet do
     expect(subject.requires_sudo?).to eq false
   end
 
-  describe "#preflight!" do
+  describe "#preflight!", :requires_macos do
     around(:each) { |ex| with_temp_dir { |dir| @dir = dir; ex.run } }
 
     def opts(overrides = {})
