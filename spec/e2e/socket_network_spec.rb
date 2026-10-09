@@ -57,6 +57,36 @@ describe "advanced networking over socket multicast (no root)", :requires_qemu d
     expect(ssh[:stdout]).to include("192.168.105.40")
   end
 
+  it "a MAC that YAML 1.1 reads as an integer reaches netplan as a string" do
+    # All octets decimal and below 60: an unquoted MAC in network-config is a
+    # base-60 integer to cloud-init, and netplan then rejects the rendered
+    # config. Generated MACs hit this ~1.3% of the time, so pin one.
+    mac = "52:54:00:26:47:05"
+    File.write(@work_dir.join("Vagrantfile"), <<~RUBY)
+      Vagrant.configure("2") do |config|
+        config.vm.box = "#{test_box_cloudinit}"
+        config.vm.box_check_update = false
+        config.vm.synced_folder ".", "/vagrant", disabled: true
+        config.vm.network "private_network", ip: "192.168.105.42", mac: "#{mac}"
+        config.vm.provider "qemu" do |qe|
+          qe.memory = "2G"
+          qe.advanced_network = true
+          qe.net_mode = :socket
+          qe.mcast_addr = "#{MCAST}"
+        end
+      end
+    RUBY
+
+    result = vagrant_up(@work_dir, timeout: 600)
+    expect(result[:exit_code]).to eq 0
+
+    ssh = vagrant_ssh(@work_dir, command: "ip addr show")
+    expect(ssh[:stdout]).to include("192.168.105.42")
+
+    ssh = vagrant_ssh(@work_dir, command: "sudo netplan generate")
+    expect(ssh[:exit_code]).to eq(0), ssh[:stderr]
+  end
+
   it "two VMs communicate over the socket multicast private network" do
     # QEMU's socket-multicast netdev binds its UDP socket to the multicast
     # group address (net/socket.c net_socket_mcast_create). Darwin's socket
