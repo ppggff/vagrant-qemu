@@ -3,7 +3,7 @@
 This is a Vagrant plugin that adds a simple QEMU provider to Vagrant, allowing Vagrant
 to control and provision machines using QEMU.
 
-## vmlab fork contract (0.6.3.vmlab.2)
+## vmlab fork contract (0.6.3.vmlab.3)
 
 Maintainer: mrmichaeladavis (the vmlab user). This separate Ruby Provider is
 not bundled inside the vmlab skill. It is a diagnostic prerelease, not a claim
@@ -117,10 +117,12 @@ Notes:
 
 ## Box format
 
-Same as [vagrant-libvirt version-1](https://github.com/vagrant-libvirt/vagrant-libvirt#version-1):
+Canonical provider identity is qemu: metadata.json must contain provider: qemu,
+and this Provider registers box_format: qemu. Disk layout uses qcow2 box.img (v1)
+or disks[] naming box_N.img (v2); it does not alias libvirt provider identity.
 
 * qcow2 image file named `box.img`
-* `metadata.json` file describing box image (provider, virtual_size, format)
+* metadata.json describes provider: qemu, virtual_size, format: qcow2
 * `Vagrantfile` that does default settings
 
 ## Configuration

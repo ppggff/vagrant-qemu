@@ -49,7 +49,7 @@ module VagrantPlugins
         Cap::Disk
       end
 
-      provider(:qemu, box_format: "libvirt", box_optional: true, parallel: true) do
+      provider(:qemu, box_format: "qemu", box_optional: true, parallel: true) do
         # Setup logging and i18n
         setup_logging
         setup_i18n

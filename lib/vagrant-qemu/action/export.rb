@@ -8,7 +8,7 @@ module VagrantPlugins
     module Action
       # Produces the box's disk artifacts and metadata.json in export.temp_dir:
       # flattens each box-disk overlay into a standalone qcow2 and describes them
-      # in a libvirt-format metadata.json. Only the VM's box disks are packaged;
+      # in canonical qemu metadata.json. Only the VM's box disks are packaged;
       # additional disks, DVDs and cloud-init seed ISOs are left out.
       class Export
         def initialize(app, env)
@@ -48,11 +48,10 @@ module VagrantPlugins
           write_metadata(temp_dir, disk_meta, multi)
         end
 
-        # libvirt box metadata: provider must be "libvirt" (the provider's
-        # box_format) or the packaged box won't match on `box add`.
+        # Canonical provider identity must match the registered box_format.
         def write_metadata(temp_dir, disk_meta, multi)
           metadata = {
-            "provider"     => "libvirt",
+            "provider"     => "qemu",
             "format"       => "qcow2",
             "virtual_size" => virtual_size_gb(temp_dir.join(disk_meta.first["path"])),
           }

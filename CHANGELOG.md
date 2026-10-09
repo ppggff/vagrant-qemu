@@ -221,3 +221,9 @@
   removes. This record never replaces Vagrant lifecycle authority.
 * Changed-file regressions and real QEMU11.1 Windows WHPX/Linux KVM diagnostics
   cover runtime discovery and retained log bytes; no installed SAC/Setup claim.
+
+# 0.6.3.vmlab.3
+
+* Clean cutover box_format and exported metadata provider identity to qemu.
+  Canonical qemu boxes are consumed directly; no libvirt alias or relabeling.
+* Registration and single/multi-disk export metadata regression coverage.
