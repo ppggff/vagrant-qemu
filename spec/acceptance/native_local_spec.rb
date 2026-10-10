@@ -1,8 +1,10 @@
 require "spec_helper"
+I18n.load_path << File.expand_path("../../locales/en.yml", __dir__)
 
 describe VagrantPlugins::QEMU::Driver, "native local lifecycle", :requires_native_qemu do
   it "boots native pflash, halts through AF_UNIX, reloads and force halts without an orphan" do
     with_temp_dir do |dir|
+      dir = dir.join("machine,comma")
       dir = dir.join("long-machine-root-" + "x" * 140) unless Vagrant::Util::Platform.windows?
       FileUtils.mkdir_p(dir)
       config = VagrantPlugins::QEMU::Config.new
@@ -23,8 +25,8 @@ describe VagrantPlugins::QEMU::Driver, "native local lifecycle", :requires_nativ
         allow(driver).to receive(:execute).and_wrap_original do |original, *cmd, **kwargs|
           puts "Provider argv=#{cmd.to_json}"
           original.call(*cmd, **kwargs)
-        rescue VagrantPlugins::QEMU::Errors::ExecuteError
-          puts "Native QEMU stderr=#{driver.tmp_dir.join(id, 'qemu.stderr.log').read}"
+        rescue VagrantPlugins::QEMU::Errors::ExecuteError => error
+          warn "Native QEMU failed: #{error.message}"
           raise
         end
         driver.start(opts)

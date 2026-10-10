@@ -92,7 +92,7 @@ module VagrantPlugins
             control_socket = "port=#{options[:control_port]},host=localhost,ipv4=on"
           else
             unix_socket_path = local_socket('monitor')
-            control_socket = "path=#{unix_socket_path}"
+            control_socket = "path=#{qemu_option_path(unix_socket_path)}"
           end
 
           debug_socket = ""
@@ -100,7 +100,7 @@ module VagrantPlugins
             debug_socket = "port=#{options[:debug_port]},host=localhost,ipv4=on"
           else
             unix_socket_serial_path = local_socket('serial')
-            debug_socket = "path=#{unix_socket_serial_path}"
+            debug_socket = "path=#{qemu_option_path(unix_socket_serial_path)}"
           end
 
           cmd = []
@@ -184,28 +184,28 @@ module VagrantPlugins
 
           if !options[:drive_interface].nil?
             image_path.each do |img|
-              cmd += %W(-drive if=#{options[:drive_interface]},id=disk#{diskid},format=qcow2,file=#{img}#{extra_drive_args})
+              cmd += %W(-drive if=#{options[:drive_interface]},id=disk#{diskid},format=qcow2,file=#{qemu_option_path(img)}#{extra_drive_args})
               diskid += 1
             end
           end
           if options[:firmware]
-            cmd += ["-drive", "if=pflash,format=raw,unit=0,file=#{id_dir.join('firmware.fd')},readonly=on"]
-            cmd += ["-drive", "if=pflash,format=raw,unit=1,file=#{id_dir.join('efi-vars.fd')}"]
+            cmd += ["-drive", "if=pflash,format=raw,unit=0,file=#{qemu_option_path(id_dir.join('firmware.fd'))},readonly=on"]
+            cmd += ["-drive", "if=pflash,format=raw,unit=1,file=#{qemu_option_path(id_dir.join('efi-vars.fd'))}"]
           elsif options[:arch] == "aarch64" && !options[:firmware_format].nil?
             fm1_path = id_dir.join("edk2-aarch64-code.fd").to_s
             fm2_path = id_dir.join("edk2-arm-vars.fd").to_s
-            cmd += %W(-drive if=pflash,format=#{options[:firmware_format]},file=#{fm1_path},readonly=on)
-            cmd += %W(-drive if=pflash,format=#{options[:firmware_format]},file=#{fm2_path})
+            cmd += %W(-drive if=pflash,format=#{options[:firmware_format]},file=#{qemu_option_path(fm1_path)},readonly=on)
+            cmd += %W(-drive if=pflash,format=#{options[:firmware_format]},file=#{qemu_option_path(fm2_path)})
           end
 
           dvd_index = 1
           @attached_drives[:dvd].each do |disk|
-            cmd += %W(-drive file=#{disk[:Path]},index=#{dvd_index},media=cdrom)
+            cmd += %W(-drive file=#{qemu_option_path(disk[:Path])},index=#{dvd_index},media=cdrom)
             dvd_index += 1
           end
           if !options[:drive_interface].nil?
             @attached_drives[:disk].each do |disk|
-              cmd += %W(-drive if=#{options[:drive_interface]},id=disk#{diskid},format=qcow2,file=#{disk[:Path]}#{extra_drive_args})
+              cmd += %W(-drive if=#{options[:drive_interface]},id=disk#{diskid},format=qcow2,file=#{qemu_option_path(disk[:Path])}#{extra_drive_args})
               diskid += 1
             end
           end
@@ -214,7 +214,7 @@ module VagrantPlugins
           pid_file = id_tmp_dir.join("qemu.pid").to_s
           if windows?
             raise Errors::ConfigError, err: "Windows monitor/serial must use local sockets" if options[:control_port] || options[:debug_port]
-            cmd += ["-chardev", "socket,id=mon0,path=#{local_socket('monitor')},server=on,wait=off"]
+            cmd += ["-chardev", "socket,id=mon0,path=#{qemu_option_path(local_socket('monitor'))},server=on,wait=off"]
           else
             cmd += %W(-chardev socket,id=mon0,#{control_socket},server=on,wait=off)
           end
@@ -222,10 +222,10 @@ module VagrantPlugins
           serial_log = ""
           if options[:serial_log_file]
             FileUtils.mkdir_p(File.dirname(options[:serial_log_file]))
-            serial_log = ",logfile=#{options[:serial_log_file]},logappend=on"
+            serial_log = ",logfile=#{qemu_option_path(options[:serial_log_file])},logappend=on"
           end
           if windows?
-            cmd += ["-chardev", "socket,id=ser0,path=#{local_socket('serial')},server=on,wait=off#{serial_log}"]
+            cmd += ["-chardev", "socket,id=ser0,path=#{qemu_option_path(local_socket('serial'))},server=on,wait=off#{serial_log}"]
           else
             cmd += %W(-chardev socket,id=ser0,#{debug_socket},server=on,wait=off#{serial_log})
           end
@@ -252,7 +252,7 @@ module VagrantPlugins
             if options[:tpm]
               backend = tpm_backend
               tpm_record = backend.start(options[:swtpm_bin] || "swtpm")
-              cmd += ["-chardev", "socket,id=vmlab_swtpm,path=#{backend.control_path}",
+              cmd += ["-chardev", "socket,id=vmlab_swtpm,path=#{qemu_option_path(backend.control_path)}",
                       "-tpmdev", "emulator,id=vmlab_tpm,chardev=vmlab_swtpm",
                       "-device", "tpm-crb,tpmdev=vmlab_tpm"]
             end
@@ -310,6 +310,10 @@ module VagrantPlugins
       end
 
       private
+
+      def qemu_option_path(path)
+        path.to_s.gsub(",", ",,")
+      end
 
       def windows?
         Vagrant::Util::Platform.windows?

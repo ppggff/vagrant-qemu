@@ -50,18 +50,18 @@ module VagrantPlugins
         begin
           pid = Process.spawn(*command, pgroup: true, in: File::NULL, out: log, err: log)
           descriptor = pidfd(pid)
-          record = identity(pid).merge("command" => command, "state_dir" => @state_dir.to_s,
-                                      "control_path" => @control_path.to_s)
-          unless record["executable"] == executable && record["argv"] == command
-            raise Errors::ConfigError, err: "Spawned TPM identity does not match the exact executable and Machine state"
-          end
-          write_record(record)
           deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 5
           until @control_path.socket?
             raise Errors::ConfigError, err: "swtpm exited before creating its local channels" if exited?(descriptor)
             raise Errors::ConfigError, err: "swtpm local channels were not ready within five seconds" if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
             sleep 0.02
           end
+          record = identity(pid).merge("command" => command, "state_dir" => @state_dir.to_s,
+                                      "control_path" => @control_path.to_s)
+          unless record["executable"] == executable && record["argv"] == command
+            raise Errors::ConfigError, err: "Spawned TPM identity does not match the exact executable and Machine state"
+          end
+          write_record(record)
           record
         rescue Exception
           if descriptor
@@ -134,6 +134,8 @@ module VagrantPlugins
           extern "int pidfd_open(int, unsigned int)"
           extern "int pidfd_send_signal(int, int, void*, unsigned int)"
         end
+      rescue Fiddle::DLError
+        raise Errors::ConfigError, err: "TPM requires libc pidfd_open and pidfd_send_signal exports; this host is unsupported"
       end
 
       def pidfd(pid)

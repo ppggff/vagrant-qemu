@@ -262,3 +262,15 @@
 * Reconcile an already-dead backend when its private socket directory is absent,
   retaining NV on halt and removing the stale owner record without weakening
   existing-directory ownership/symlink checks; native causal-red/green regression.
+
+# 0.6.3.vmlab.7
+
+* Escape commas in every structured QEMU filesystem path, including owned pflash,
+  imported and attached disks, local monitor/serial channels and retained logs.
+  Native comma-root WHPX/KVM lifecycle regression preserves vars/logs and proves
+  restart, local halt, forced halt and confirmed no orphan.
+* Classify missing libc pidfd exports as unsupported TPM configuration before
+  launching a backend; preserve TPM-off and Windows unsupported boundaries.
+* Inspect and persist exact TPM process identity after the existing bounded
+  control readiness handshake, retaining immediate pidfd binding and fail-closed
+  mismatch cleanup. Native TPM NV/CLI-exit/failed-QEMU/recovery scenarios passed.

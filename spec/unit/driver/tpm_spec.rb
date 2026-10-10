@@ -47,4 +47,17 @@ RSpec.describe "Provider-owned TPM policy" do
       expect(machine.join("tpm").symlink?).to eq(true)
     end
   end
+  it "refuses unavailable libc pidfd exports before launching a TPM process" do
+    skip "Linux TPM policy" unless RbConfig::CONFIG["host_os"] =~ /linux/
+    with_temp_dir do |dir|
+      state, runtime, sockets = %w[state runtime sockets].map { |name| dir.join(name) }
+      [state, runtime, sockets].each { |path| Dir.mkdir(path, 0700) }
+      backend = VagrantPlugins::QEMU::Swtpm.new(state, runtime, sockets)
+      allow(Fiddle).to receive(:dlopen).with(nil).and_raise(Fiddle::DLError, "unknown symbol pidfd_open")
+      expect(Process).not_to receive(:spawn)
+      expect { backend.start(RbConfig.ruby) }
+        .to raise_error(VagrantPlugins::QEMU::Errors::ConfigError)
+      expect(backend.record_path).not_to exist
+    end
+  end
 end

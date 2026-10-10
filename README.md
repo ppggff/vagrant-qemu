@@ -3,11 +3,20 @@
 This is a Vagrant plugin that adds a simple QEMU provider to Vagrant, allowing Vagrant
 to control and provision machines using QEMU.
 
-## vmlab fork contract (0.6.3.vmlab.6)
+## vmlab fork contract (0.6.3.vmlab.7)
 
 Maintainer: mrmichaeladavis (the vmlab user). This separate Ruby Provider is
 not bundled inside the vmlab skill. It is a diagnostic prerelease, not a claim
 that Windows Setup, installed guest SSH/key insertion or cross-host boot passed.
+
+Structured QEMU drive and chardev path values escape commas as `,,`; valid
+comma-containing Machine roots and serial logs retain their filesystem meaning.
+Native WHPX and KVM firmware-only lifecycle diagnostics exercise this boundary.
+These results do not relabel the historical installed-guest and Box proof scope.
+Optional Linux TPM requires libc pidfd exports as well as kernel support;
+missing exports produce an explicit unsupported configuration error before
+backend launch. The spawned child is bound to its pidfd immediately; exact
+executable/argv ownership is checked and recorded after control-channel readiness.
 
 Set both qe.firmware and qe.efi_vars to absolute paths of
 pristine raw firmware templates. Import copies them into the Provider-owned
