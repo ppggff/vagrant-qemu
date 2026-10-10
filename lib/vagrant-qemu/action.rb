@@ -20,6 +20,7 @@ module VagrantPlugins
             b2.use Vagrant::Action::General::PackageSetupFolders
             b2.use Vagrant::Action::General::PackageSetupFiles
             b2.use StopInstance
+            b2.use SyncedFolderCleanup
             b2.use Vagrant::Action::General::Package
             b2.use Export
             b2.use PackageVagrantfile
@@ -38,6 +39,7 @@ module VagrantPlugins
             end
 
             b2.use StopInstance
+            b2.use SyncedFolderCleanup
           end
         end
       end
@@ -137,11 +139,13 @@ module VagrantPlugins
             b1.use PrepareForwardedPortCollisionParams
             b1.use HandleForwardedPortCollisions
             b1.use SyncedFolderCleanup
+            b1.use ResetVirtioFSArgs
             b1.use SyncedFolders
             b1.use WarnNetworks
             b1.use SetHostname
             b1.use StartInstance
             b1.use WaitForCommunicator, [:running]
+            b1.use MountVirtioFS
           end
         end
       end
@@ -192,6 +196,8 @@ module VagrantPlugins
       autoload :CloudInitNetwork, action_root.join("cloud_init_network")
       autoload :TimedProvision, action_root.join("timed_provision") # some plugins now expect this action to exist
       autoload :WarnNetworks, action_root.join("warn_networks")
+      autoload :MountVirtioFS, action_root.join("mount_virtiofs")
+      autoload :ResetVirtioFSArgs, action_root.join("reset_virtiofs_args")
       autoload :PrepareForwardedPortCollisionParams, action_root.join("prepare_forwarded_port_collision_params")
     end
   end
