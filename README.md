@@ -510,28 +510,44 @@ vagrant plugin list | grep vagrant-qemu
 
 > This command will list all installed plugins, and you should see the vagrant-qemu plugin with the locally built version.
 
-### Running Tests
+### Testing
+
+Tests are RSpec, in three layers. GitHub Actions runs all of them on every pull request (`.github/workflows/ci.yml`); a new push to a pull request cancels its older run, and changes that only touch `*.md` files are not tested.
+
+| Layer | What | Where CI runs it |
+|---|---|---|
+| Unit (`spec/unit`) | Plugin code, no QEMU | Ubuntu, macOS, Windows |
+| Acceptance (`spec/acceptance`) | Vagrant actions against a mock `qemu` (bash scripts) | Ubuntu, macOS |
+| Guest smoke (`examples/ci-smoke`) | Boots a Debian guest: up, ssh, status, halt, destroy | Ubuntu, macOS, Windows WSL2 |
+| e2e (`spec/e2e`) | Real VMs: disks, forwarded ports, provision, reload, package, networking | Ubuntu with KVM; vmnet and socket_vmnet specs on macOS |
+
+CI uses the latest Vagrant release and prints the Ruby and Vagrant versions in each job. Hosted macOS runners have no HVF, so CI runs macOS guests with TCG; the HVF path is only tested locally.
+
+Run them locally:
 
 ```sh
-# Unit tests (fast, no QEMU needed)
+# Unit and acceptance (fast, no real VM)
 bundle exec rake spec:unit
-
-# Acceptance tests (mock QEMU, no real VM)
 bundle exec rake spec:acceptance
 
-# End-to-end tests (requires QEMU and a box image). e2e exercises the
-# INSTALLED plugin — rebuild and reinstall first (the suite fails fast on
-# a version mismatch):
+# e2e exercises the INSTALLED plugin: rebuild and reinstall first (the
+# suite fails fast on a version mismatch)
 bundle exec rake build
 vagrant plugin install ./pkg/vagrant-qemu-<version>.gem
 TEST_QEMU=1 bundle exec rake spec:e2e
 
-# End-to-end with vmnet (requires sudo + macOS; needs an aarch64 cloud-init box)
-TEST_QEMU=1 TEST_VMNET=1 TEST_BOX_CLOUDINIT=perk/ubuntu-2204-arm64 sudo -E bundle exec rake spec:e2e
-
-# All tests
-bundle exec rake spec
+# vmnet (macOS, needs sudo) and socket_vmnet (macOS, needs the daemon:
+# brew install socket_vmnet && sudo brew services start socket_vmnet)
+TEST_VMNET=1 sudo -E bundle exec rspec spec/e2e/advanced_network_spec.rb
+TEST_SOCKET_VMNET=1 bundle exec rspec spec/e2e/socket_vmnet_spec.rb
 ```
+
+The e2e boxes default to Apple Silicon (aarch64) boxes; on another host set `TEST_BOX` and `TEST_BOX_CLOUDINIT` to boxes of the host architecture (CI uses `cloud-image/ubuntu-22.04` for both).
+
+Adding tests:
+
+* A new e2e example in `spec/e2e` tagged `:requires_qemu` runs in CI's Ubuntu e2e job without workflow changes.
+* A feature that needs extra host setup (a daemon, a tool such as `virtiofsd`, root) gets its own tag, an environment switch in `spec/spec_helper.rb` next to `TEST_VMNET`, and a workflow step that installs the dependency and sets the switch.
 
 ## Known issue / Troubleshooting
 

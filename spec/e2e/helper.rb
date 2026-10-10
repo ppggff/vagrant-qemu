@@ -9,10 +9,11 @@ require "bundler"
 #                     Default: "ppggff/centos-7-aarch64-2009-4K"
 #
 # TEST_BOX_CLOUDINIT - Box for advanced network tests.
-#                      Must be an aarch64 box (x86_64 images never boot under
-#                      qemu-system-aarch64) and support cloud-init for static
-#                      IP configuration.
-#                      Default: "perk/ubuntu-2204-arm64"
+#                      Must match the host architecture (the provider picks
+#                      qemu-system-aarch64 or -x86_64 from the host) and
+#                      support cloud-init for static IP configuration.
+#                      Default: "perk/ubuntu-2204-arm64" (Apple Silicon).
+#                      CI uses "cloud-image/ubuntu-22.04" for both boxes.
 #
 # IMPORTANT: e2e tests run vagrant via Bundler.with_unbundled_env, which means
 # they exercise the INSTALLED `vagrant-qemu` plugin, not the in-repo source.
