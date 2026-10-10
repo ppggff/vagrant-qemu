@@ -3,8 +3,9 @@ source "https://rubygems.org"
 group :development do
   # We depend on Vagrant for development, but we don't add it as a
   # gem dependency because we expect to be installed within the
-  # Vagrant environment itself using `vagrant plugin`.
-  gem "vagrant", :git => "https://github.com/mitchellh/vagrant.git"
+  # Vagrant environment itself using `vagrant plugin`. Released versions
+  # only; without a lockfile (CI) this resolves to the latest release.
+  gem "vagrant"
 
   gem "rake"
   gem "rspec", "~> 3.4"
