@@ -47,8 +47,10 @@ describe "vagrant package end-to-end", :requires_qemu do
     expect(listing).to include("Vagrantfile")
 
     # box.img must be a self-contained qcow2 (overlay flattened, no backing).
+    # Extract everything: members may be stored as "./box.img", which GNU tar
+    # will not match by bare name.
     Dir.mktmpdir do |ex|
-      system("tar xzf #{@box_path} -C #{ex} box.img")
+      system("tar xzf #{@box_path} -C #{ex}")
       info = `qemu-img info --output=json #{File.join(ex, "box.img")}`
       expect(info).to include('"format": "qcow2"')
       expect(info).not_to match(/backing-filename/)
@@ -86,7 +88,7 @@ describe "vagrant package end-to-end", :requires_qemu do
     expect(vagrant_package(@work_dir, output: @box_path)[:exit_code]).to eq 0
 
     Dir.mktmpdir do |ex|
-      system("tar xzf #{@box_path} -C #{ex} Vagrantfile")
+      system("tar xzf #{@box_path} -C #{ex}")
       vf = File.read(File.join(ex, "Vagrantfile"))
       expect(vf).to include("qe.arch")
       expect(vf).not_to match(/forwarded_port|network|8080/)

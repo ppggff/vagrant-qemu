@@ -1,6 +1,6 @@
 require "spec_helper"
 
-describe VagrantPlugins::QEMU::Driver, "start command line (socket_vmnet)", :requires_macos do
+describe VagrantPlugins::QEMU::Driver, "start command line (socket_vmnet)" do
   let(:vm_id) { "vq_svtest00042" }
 
   around(:each) do |example|
@@ -48,6 +48,8 @@ describe VagrantPlugins::QEMU::Driver, "start command line (socket_vmnet)", :req
   end
 
   before do
+    allow(RbConfig::CONFIG).to receive(:[]).and_call_original
+    allow(RbConfig::CONFIG).to receive(:[]).with("host_os").and_return("darwin23")
     @captured_cmd = nil
     allow(subject).to receive(:execute) do |*cmd, **opts|
       @captured_cmd = cmd
@@ -85,7 +87,12 @@ describe VagrantPlugins::QEMU::Driver, "start command line (socket_vmnet)", :req
   end
 
   context "wrapper route (QEMU lacks stream)" do
-    before { allow(VagrantPlugins::QEMU::Network).to receive(:qemu_supports_stream?).and_return(false) }
+    before do
+      allow(VagrantPlugins::QEMU::Network).to receive(:qemu_supports_stream?).and_return(false)
+      # chmod does not make a file executable on Windows.
+      allow(File).to receive(:executable?).and_call_original
+      allow(File).to receive(:executable?).with(@client).and_return(true)
+    end
 
     it "prepends the socket_vmnet_client wrapper with the socket path" do
       subject.start(options)
