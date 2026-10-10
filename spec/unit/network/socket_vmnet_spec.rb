@@ -41,9 +41,8 @@ describe VagrantPlugins::QEMU::Network::SocketVmnet do
     def opts(overrides = {})
       sock = @dir.join("sock").to_s
       FileUtils.touch(sock)
-      client = @dir.join("client").to_s
-      FileUtils.touch(client)
-      File.chmod(0o755, client)
+      # Use a real executable; chmod on an extensionless file is not portable to Windows.
+      client = RbConfig.ruby
       { socket_vmnet_socket: sock, socket_vmnet_client: client }.merge(overrides)
     end
 

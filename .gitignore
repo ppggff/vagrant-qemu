@@ -22,3 +22,10 @@ Vagrantfile
 # RVM files for gemset/ruby setting
 .ruby-*
 .rvmrc
+
+# Local upstream inspection and review artifacts are never fork source or gem payload.
+.upstream-vagrant/
+.upstream-vagrant/**/*
+.git/**/*
+.tmp/
+.tmp/**/*

@@ -3,7 +3,7 @@
 This is a Vagrant plugin that adds a simple QEMU provider to Vagrant, allowing Vagrant
 to control and provision machines using QEMU.
 
-## vmlab fork contract (0.6.3.vmlab.5)
+## vmlab fork contract (0.6.3.vmlab.6)
 
 Maintainer: mrmichaeladavis (the vmlab user). This separate Ruby Provider is
 not bundled inside the vmlab skill. It is a diagnostic prerelease, not a claim
@@ -15,6 +15,25 @@ Machine directory as firmware.fd and efi-vars.fd. Pflash unit 0 is read-only;
 unit 1 is writable and persists over halt/start/reload. Destroy removes both.
 Changing templates on an existing Machine requires destroy/import, never an
 overwrite of its live NVRAM. Do not also supply pflash through extra_qemu_args.
+
+Optional TPM2 is Provider-owned on Linux x86_64: set `qe.tpm = true` and,
+if needed, `qe.swtpm_bin` to the installed swtpm executable (default `swtpm`).
+The default is disabled and does not require swtpm or pidfd. Windows and other
+architectures explicitly reject enabled TPM; this does not qualify Windows 11.
+Native qualification uses swtpm 0.7.3 and QEMU 11.1 with `tpm-crb`.
+The Provider creates private per-Machine `data/<id>/tpm` NV state (0700 directory,
+0600 state files) and a private Unix control socket in its owned short socket
+directory. QEMU supplies the anonymous local Unix data FD through SCM_RIGHTS;
+there is no TCP or separately listening TPM data server. Never add TPM through
+`extra_qemu_args` or share a Machine's TPM state.
+The foreground backend has its own process group and detached stdio. A private
+atomic owner record binds PID, kernel start ticks, executable, euid and exact
+argv. Linux pidfd identity checks precede termination: a mismatch is an error
+and retains uncertain state rather than signaling another process. Ordinary
+CLI exit leaves the backend owned by the next Provider invocation. Failed QEMU
+launch, halt and forced halt stop the owned backend and remove its control
+socket; halt/reload retain NV, while destroy removes it. The optional `tpm`
+field in runtime.json is an observation, never lifecycle authority.
 
 Windows automatically uses a detached process without -daemonize, with stdout
 and stderr files under the Machine temporary directory. Monitor (QMP) and COM1

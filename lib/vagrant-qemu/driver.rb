@@ -17,6 +17,7 @@ require "vagrant/util/which"
 require 'timeout'
 require_relative "plugin"
 require_relative "network"
+require_relative "swtpm"
 
 module VagrantPlugins
   module QEMU
@@ -51,6 +52,7 @@ module VagrantPlugins
 
       def delete
         raise Errors::ConfigError, err: "Cannot delete a running QEMU Machine" if running?
+        stop_owned_tpm
         if created?
           id_dir = @data_dir.join(@vm_id)
           cleanup_local_sockets
@@ -61,6 +63,7 @@ module VagrantPlugins
       end
 
       def start(options)
+        Swtpm.validate_request(options.fetch(:tpm, false), options[:arch])
         if !running?
           id_dir = @data_dir.join(@vm_id)
 
@@ -73,6 +76,7 @@ module VagrantPlugins
 
           id_tmp_dir = @tmp_dir.join(@vm_id)
           FileUtils.mkdir_p(id_tmp_dir)
+          stop_owned_tpm
           prepare_local_sockets unless windows?
 
           # Persist only the runtime state we need to read back later
@@ -242,16 +246,35 @@ module VagrantPlugins
           cmd = launch_prefix + cmd
 
           opts = {:detach => options[:no_daemonize] || windows?}
-          execute(*cmd, **opts)
-          if running?
-            control = options[:control_port] ? {transport: "tcp", host: "localhost", port: options[:control_port], protocol: "hmp"} : {transport: "unix", path: local_socket('monitor'), protocol: "qmp"}
-            serial = options[:debug_port] ? {transport: "tcp", host: "localhost", port: options[:debug_port], slot: 1} : {transport: "unix", path: local_socket('serial'), slot: 1}
-            firmware = options[:firmware] ? id_dir.join("firmware.fd").to_s : (options[:arch] == "aarch64" && options[:firmware_format] ? id_dir.join("edk2-aarch64-code.fd").to_s : nil)
-            efi_vars = options[:firmware] ? id_dir.join("efi-vars.fd").to_s : (options[:arch] == "aarch64" && options[:firmware_format] ? id_dir.join("edk2-arm-vars.fd").to_s : nil)
-            runtime = {schema_version: 1, vm_id: @vm_id, pid: process_id, argv: cmd, control: control, serial: serial, firmware: firmware, efi_vars: efi_vars, serial_log_file: options[:serial_log_file]}
-            File.write(id_tmp_dir.join("runtime.json"), JSON.pretty_generate(runtime))
-          else
-            cleanup_local_sockets
+          backend = nil
+          tpm_record = nil
+          begin
+            if options[:tpm]
+              backend = tpm_backend
+              tpm_record = backend.start(options[:swtpm_bin] || "swtpm")
+              cmd += ["-chardev", "socket,id=vmlab_swtpm,path=#{backend.control_path}",
+                      "-tpmdev", "emulator,id=vmlab_tpm,chardev=vmlab_swtpm",
+                      "-device", "tpm-crb,tpmdev=vmlab_tpm"]
+            end
+            execute(*cmd, **opts)
+            if running?
+              control = options[:control_port] ? {transport: "tcp", host: "localhost", port: options[:control_port], protocol: "hmp"} : {transport: "unix", path: local_socket('monitor'), protocol: "qmp"}
+              serial = options[:debug_port] ? {transport: "tcp", host: "localhost", port: options[:debug_port], slot: 1} : {transport: "unix", path: local_socket('serial'), slot: 1}
+              firmware = options[:firmware] ? id_dir.join("firmware.fd").to_s : (options[:arch] == "aarch64" && options[:firmware_format] ? id_dir.join("edk2-aarch64-code.fd").to_s : nil)
+              efi_vars = options[:firmware] ? id_dir.join("efi-vars.fd").to_s : (options[:arch] == "aarch64" && options[:firmware_format] ? id_dir.join("edk2-arm-vars.fd").to_s : nil)
+              runtime = {schema_version: 1, vm_id: @vm_id, pid: process_id, argv: cmd, control: control, serial: serial, firmware: firmware, efi_vars: efi_vars, serial_log_file: options[:serial_log_file]}
+              runtime[:tpm] = tpm_record if tpm_record
+              File.write(id_tmp_dir.join("runtime.json"), JSON.pretty_generate(runtime))
+            else
+              backend.stop if backend
+              cleanup_local_sockets
+            end
+          rescue Exception
+            unless running?
+              backend.stop if backend
+              cleanup_local_sockets
+            end
+            raise
           end
         end
       end
@@ -280,7 +303,10 @@ module VagrantPlugins
         force_kill
         raise Errors::ConfigError, err: "QEMU did not terminate after forced halt" if still_running_after?(5)
       ensure
-        cleanup_local_sockets unless running?
+        unless running?
+          stop_owned_tpm
+          cleanup_local_sockets
+        end
       end
 
       private
@@ -310,6 +336,16 @@ module VagrantPlugins
           extern "unsigned long WaitForSingleObject(void*, unsigned long)"
           extern "int CloseHandle(void*)"
         end
+      end
+
+      def tpm_backend
+        Swtpm.new(@data_dir.join(@vm_id, "tpm"), @tmp_dir.join(@vm_id),
+                  Pathname.new(File.dirname(local_socket("monitor"))))
+      end
+
+      def stop_owned_tpm
+        record = @tmp_dir.join(@vm_id, "swtpm.json")
+        tpm_backend.stop if record.exist? || record.symlink?
       end
 
       def local_socket(channel)

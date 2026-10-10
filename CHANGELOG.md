@@ -248,3 +248,17 @@
   unique-key, old-bootstrap rejection and ACL qualification remain separate.
 * Preserve .4 lifecycle/ports/pflash ownership; native diagnostic launch uses
   two CPUs/native APIC and explicit governed DLL runtime environment on Windows.
+
+# 0.6.3.vmlab.6
+
+* Optional Provider-owned Linux x86_64 TPM2 using swtpm, private per-Machine NV,
+  Unix control and QEMU-provided anonymous local data FD; no TCP/data listener.
+* Exact process identity and pidfd termination retain uncertain state, preserve
+  NV across halt/reload and remove owned state on destroy. Default TPM-off does
+  not require swtpm or pidfd; enabled Windows/other architectures are rejected.
+* Real KVM tests prove TPM NV persistence, identity-mismatch refusal, forced halt,
+  destroy/no orphan, ordinary CLI exit and actual failed-QEMU launch cleanup.
+  No Windows TPM or compliant Windows 11 qualification is claimed.
+* Reconcile an already-dead backend when its private socket directory is absent,
+  retaining NV on halt and removing the stale owner record without weakening
+  existing-directory ownership/symlink checks; native causal-red/green regression.

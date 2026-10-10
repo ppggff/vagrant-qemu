@@ -36,6 +36,8 @@ module VagrantPlugins
             :firmware => config.firmware,
             :efi_vars => config.efi_vars,
             :serial_log_file => config.serial_log_file,
+            :tpm => config.tpm,
+            :swtpm_bin => config.swtpm_bin,
             :other_default => config.other_default,
             :extra_image_opts => config.extra_image_opts,
             # Advanced networking

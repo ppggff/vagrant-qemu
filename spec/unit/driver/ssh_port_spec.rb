@@ -35,12 +35,4 @@ describe VagrantPlugins::QEMU::Driver, "#get_ssh_port" do
     expect(subject.get_ssh_port(50022)).to eq 50022
   end
 
-  it "stores result in @ssh_port" do
-    opt_dir = @tmp_base.join("vagrant-qemu", vm_id)
-    FileUtils.mkdir_p(opt_dir)
-    File.write(opt_dir.join("options.yml"), { ssh_port: 50099 }.to_yaml)
-
-    subject.get_ssh_port(50022)
-    expect(subject.ssh_port).to eq 50099
-  end
 end

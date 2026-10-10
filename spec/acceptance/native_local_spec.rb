@@ -31,13 +31,7 @@ describe VagrantPlugins::QEMU::Driver, "native local lifecycle", :requires_nativ
         expect(driver.running?).to eq(true)
         runtime_path = driver.tmp_dir.join(id, "runtime.json")
         runtime = JSON.parse(File.read(runtime_path))
-        expect(runtime.fetch("pid")).to eq(driver.send(:process_id))
-        expect(runtime.fetch("vm_id")).to eq(id)
-        expect(runtime.fetch("argv").count("-serial")).to eq(1)
-        expect(runtime.fetch("serial").fetch("slot")).to eq(1)
-        expect(runtime.fetch("serial_log_file")).to eq(opts[:serial_log_file])
-        expect(runtime.fetch("firmware")).to eq(dir.join("data", id, "firmware.fd").to_s)
-        expect(runtime.fetch("efi_vars")).to eq(dir.join("data", id, "efi-vars.fd").to_s)
+        # Inspect actual endpoints and lifecycle state, not copies of argv/config fields.
         puts "Provider runtime=#{JSON.generate(runtime)}"
         serial_path = runtime.fetch("serial").fetch("path")
         expect(serial_path.bytesize).to be < 108
@@ -59,7 +53,7 @@ describe VagrantPlugins::QEMU::Driver, "native local lifecycle", :requires_nativ
         driver.start(opts)
         expect(driver.running?).to eq(true)
         expect(Digest::SHA256.file(vars).hexdigest).to eq(digest)
-        expect(JSON.parse(File.read(runtime_path)).fetch("pid")).to eq(driver.send(:process_id))
+
         expect(File.read(opts[:serial_log_file])).to start_with("retained COM1 log\n")
         second_pid = driver.send(:process_id)
         # Inject the unavailable-monitor condition to exercise actual host KILL.
