@@ -33,6 +33,8 @@ jobs:
           ruby-version: '3.3'
           bundler-cache: true
       - name: Versions
+        # PowerShell, the Windows default, strips the inner double quotes.
+        shell: bash
         run: |
           bundle exec ruby -e 'puts RUBY_DESCRIPTION; puts "Vagrant #{Gem.loaded_specs.fetch("vagrant").version}"'
       - run: bundle exec rake spec:unit
