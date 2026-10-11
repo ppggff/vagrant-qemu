@@ -437,6 +437,16 @@ Platform support:
 
 Serial port is exported to unix socket: `<user_home>/.vagrant.d/tmp/vagrant-qemu/<id>/qemu_socket_serial`, or `debug_port`.
 
+Run `vagrant serial-config` to list serial endpoints for all machines, or
+`vagrant serial-config NAME` for one machine. The command does not start machines;
+uncreated machines are listed as `NotCreated`. Created machines show `UnixSocket`
+or `Host`/`Port`. The endpoint may not be listening while the machine is stopped.
+
+Use `vagrant serial-config --json` for an array of machine names and endpoint
+objects. An uncreated machine has a `null` endpoint. For newly started instances,
+the command uses the endpoint recorded at launch, even if `debug_port` changes
+in the Vagrantfile; older instances fall back to their current configuration.
+
 To debug and login to the GuestOS from serial port:
 
 * unix socket

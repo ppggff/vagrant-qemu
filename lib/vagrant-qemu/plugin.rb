@@ -24,6 +24,11 @@ module VagrantPlugins
         Config
       end
 
+      command(:"serial-config") do
+        require_relative "command/serial_config"
+        Command::SerialConfig
+      end
+
       provider_capability(:qemu, :set_default_disk_ext) do
         require File.expand_path("../cap/disk", __FILE__)
         Cap::Disk
