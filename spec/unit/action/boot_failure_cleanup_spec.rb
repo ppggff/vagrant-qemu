@@ -10,10 +10,8 @@ describe "cleanup of a newly launched VM after boot failure" do
   end
 
   def run_with_failure(error)
-    builder = Vagrant::Action::Builder.new
-    builder.use VagrantPlugins::QEMU::Action::StartInstance
-    builder.use ->(_env) { raise error }
-    builder.call(ctx[:env])
+    actions = [VagrantPlugins::QEMU::Action::StartInstance, ->(_env) { raise error }]
+    Vagrant::Action::Warden.new(actions, ctx[:env]).call(ctx[:env])
   end
 
   it "stops QEMU when Vagrant's communicator boot wait times out" do
