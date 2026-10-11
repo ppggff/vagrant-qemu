@@ -11,6 +11,17 @@ module VagrantPlugins
       def call(env)
       machine = env[:machine]
 
+      # There is no provider-managed SSH forward when the user disables our
+      # NIC (e.g. a custom bridged NIC with direct SSH). Vagrant/box configs
+      # may still contain an inherited SSH rule: exclude it from collisions.
+      if machine.provider_config.net_device.nil?
+        machine.config.vm.networks.each do |type, options|
+          options[:disabled] = true if type == :forwarded_port && options[:id] == "ssh"
+        end
+        @app.call(env)
+        return
+      end
+
       # TODO: not supported
       other_used_ports = {}
       env[:port_collision_extra_in_use] = other_used_ports

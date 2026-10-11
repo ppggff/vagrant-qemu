@@ -48,7 +48,7 @@ module VagrantPlugins
 
           # Pick up SSH port that may have been corrected by HandleForwardedPortCollisions
           env[:machine].config.vm.networks.each do |type, opts|
-            if type == :forwarded_port && opts[:id] == "ssh"
+            if !config.net_device.nil? && type == :forwarded_port && opts[:id] == "ssh" && !opts[:disabled]
               options[:ssh_port] = opts[:host]
               break
             end
