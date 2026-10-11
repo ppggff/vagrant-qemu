@@ -35,6 +35,7 @@ Others:
 * SSH into VM
 * Provision the instances with any built-in Vagrant provisioner
 * Synced folder support via SMB
+* Synced folder support via VirtioFS for Linux guests
 * Basic operation: up, ssh, halt, destroy
 * Basic suport to forwarded ports, see [vagrant doc](https://www.vagrantup.com/docs/networking/forwarded_ports) for details
 * Support Cloud-init, see [vagrant doc](https://developer.hashicorp.com/vagrant/docs/cloud-init/usage) for details
@@ -66,6 +67,41 @@ Notes:
 * may need password to setup SMB on Mac,
   see [vagrant doc](https://www.vagrantup.com/docs/synced-folders/smb) for details
 * need username/password to access shared folder
+
+### VirtioFS synced folders
+
+Install `virtiofsd` on the host and use a Linux guest with VirtioFS support.
+The plugin searches `PATH`, `/usr/libexec`, and `/usr/lib/qemu` for the daemon;
+set `qe.virtiofsd_bin` when it is installed elsewhere.
+
+On Apple Silicon macOS, install the macOS daemon port and the QEMU build
+with vhost-user-fs support from the tap:
+
+```sh
+brew install antimatter-studios/tap/qemu antimatter-studios/tap/virtiofsd
+```
+
+CI tests this combination with TCG. Linux and Windows WSL2 use the Ubuntu
+`virtiofsd` package. In WSL2 both QEMU and the daemon run inside Linux, so
+shares can live on the native Linux filesystem; Windows DrvFs paths are
+not required. Use `type: "virtiofs"` explicitly, or restrict
+`config.vm.allowed_synced_folder_types` to `[:virtiofs]`; its priority is
+below rsync and NFS so installing the daemon does not override those types.
+
+```ruby
+config.vm.synced_folder "./src", "/home/vagrant/src", type: "virtiofs"
+config.vm.provider "qemu" do |qe|
+  qe.virtiofsd_bin = "/path/to/virtiofsd" # optional
+end
+```
+
+`virtiofs_guest_uid` and `virtiofs_guest_gid` default to `1000`. UID/GID
+translation is used when the installed daemon supports it. Additional daemon
+arguments can be passed through `extra_virtiofsd_args` as an array.
+VirtioFS requires a positive `qe.memory`: bare numbers mean MiB, and
+`K`, `M`, `G`, and `T` suffixes are accepted. `nil` is rejected for VirtioFS
+because the shared memory backend needs an explicit size. QEMU creates an
+unlinked RAM backing file in the host temporary directory.
 
 ## Box format
 
@@ -562,6 +598,7 @@ Tests are RSpec, in three layers. GitHub Actions runs all of them on every pull 
 | Acceptance (`spec/acceptance`) | Vagrant actions against a mock `qemu` (bash scripts) | Ubuntu, macOS |
 | Guest smoke (`examples/ci-smoke`) | Boots a Debian guest: up, ssh, status, halt, destroy | Ubuntu, macOS, Windows WSL2 |
 | e2e (`spec/e2e`) | Real VMs: disks, forwarded ports, provision, reload, package, networking | Ubuntu with KVM; vmnet and socket_vmnet specs on macOS |
+| VirtioFS e2e (`spec/e2e/virtiofs_spec.rb`) | Two resolved shares, host/guest writes, reload, halt/up, daemon and socket cleanup on destroy | Ubuntu, Apple Silicon macOS, Windows WSL2 |
 
 CI uses the latest Vagrant release and prints the Ruby and Vagrant versions in each job. Hosted macOS runners have no HVF, so CI runs macOS guests with TCG; the HVF path is only tested locally.
 
@@ -582,6 +619,10 @@ TEST_QEMU=1 bundle exec rake spec:e2e
 # brew install socket_vmnet && sudo brew services start socket_vmnet)
 TEST_VMNET=1 sudo -E bundle exec rspec spec/e2e/advanced_network_spec.rb
 TEST_SOCKET_VMNET=1 bundle exec rspec spec/e2e/socket_vmnet_spec.rb
+
+# VirtioFS: install the host daemon (and compatible QEMU on macOS) first.
+# This test uses TCG and a Debian box matching the host architecture.
+TEST_VIRTIOFS=1 TEST_BOX=cloud-image/debian-12 bundle exec rspec spec/e2e/virtiofs_spec.rb
 ```
 
 The e2e boxes default to Apple Silicon (aarch64) boxes; on another host set `TEST_BOX` and `TEST_BOX_CLOUDINIT` to boxes of the host architecture (CI uses `cloud-image/ubuntu-22.04` for both).

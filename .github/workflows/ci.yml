@@ -107,7 +107,7 @@ jobs:
   wsl2-guest-smoke:
     name: QEMU guest smoke (Windows WSL2)
     runs-on: windows-2025
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: Vampire/setup-wsl@d1da7f2c0322a5ee4f24975344f67fc0f5baf364 # v7.0.0
@@ -119,7 +119,7 @@ jobs:
           test "$(uname -r | grep -ci microsoft)" -gt 0
           uname -a
           apt-get update
-          apt-get install -y ruby-full ruby-dev build-essential qemu-system-x86 qemu-utils libarchive-tools
+          apt-get install -y ruby-full ruby-dev build-essential qemu-system-x86 qemu-utils libarchive-tools virtiofsd
       - name: Install the plugin inside WSL2
         shell: wsl-bash {0}
         run: |
@@ -145,6 +145,15 @@ jobs:
           vagrant ssh -c 'uname -a'
           vagrant status --machine-readable
           vagrant halt
+      - name: VirtioFS e2e inside WSL2
+        shell: wsl-bash {0}
+        run: |
+          export VAGRANT_HOME=/tmp/vagrant-qemu-ci-home VAGRANT_DEFAULT_PROVIDER=qemu
+          cd /tmp/vagrant-qemu-ci-source
+          gem install bundler --no-document
+          bundle install
+          /usr/libexec/virtiofsd --version
+          TEST_VIRTIOFS=1 TEST_BOX=cloud-image/debian-12 bundle exec rspec spec/e2e/virtiofs_spec.rb --format documentation
       - name: Destroy WSL2 sample guest
         if: always()
         shell: wsl-bash {0}
@@ -162,6 +171,7 @@ jobs:
       # Short: QEMU's monitor socket path under VAGRANT_HOME must stay below 104 bytes.
       VAGRANT_HOME: /tmp/vq-home
       TEST_QEMU: '1'
+      TEST_VIRTIOFS: '1'
       TEST_BOX: cloud-image/ubuntu-22.04
       TEST_BOX_CLOUDINIT: cloud-image/ubuntu-22.04
     steps:
@@ -181,7 +191,7 @@ jobs:
       - name: Install QEMU
         run: |
           sudo apt-get update
-          sudo apt-get install -y qemu-system-x86 qemu-utils libarchive-tools genisoimage
+          sudo apt-get install -y qemu-system-x86 qemu-utils libarchive-tools genisoimage virtiofsd
       - name: Install Vagrant and the plugin from this commit
         run: |
           gem install vagrant --no-document
@@ -209,6 +219,7 @@ jobs:
           ruby -v
           vagrant --version
           qemu-system-x86_64 --version
+          /usr/libexec/virtiofsd --version
       - run: bundle exec rspec --profile 30 spec/e2e
 
   e2e-macos-network:
@@ -272,3 +283,45 @@ jobs:
         run: |
           ps -Ao pid,ppid,user,etime,args | grep '[q]emu-system' || true
           sudo lsof -nP -iTCP:50022 -iTCP:2200 -sTCP:LISTEN || true
+
+  e2e-virtiofs-macos:
+    name: VirtioFS e2e (macos-15)
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      VAGRANT_HOME: /tmp/vq-home
+      TEST_VIRTIOFS: '1'
+      TEST_BOX: cloud-image/debian-12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@e81a8fa391b11a595c1b7ed84177cc0fe02faf83 # v1.328.0
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+      - name: Install macOS VirtioFS daemon and compatible QEMU
+        run: |
+          brew install antimatter-studios/tap/qemu antimatter-studios/tap/virtiofsd
+          echo "TEST_QEMU_DIR=$(brew --prefix antimatter-studios/tap/qemu)/share/qemu" >> "$GITHUB_ENV"
+          qemu-system-aarch64 -device help | grep vhost-user-fs
+      - name: Install Vagrant and the plugin from this commit
+        run: |
+          gem install vagrant --no-document
+          gem build vagrant-qemu.gemspec
+          vagrant plugin install "$(find "$PWD" -maxdepth 1 -name 'vagrant-qemu-*.gem' -print -quit)"
+      - name: Versions
+        run: |
+          git rev-parse HEAD
+          sw_vers
+          ruby -v
+          vagrant --version
+          qemu-system-aarch64 --version
+          virtiofsd --version
+      - name: VirtioFS e2e with TCG
+        run: |
+          set -o pipefail
+          bundle exec rspec spec/e2e/virtiofs_spec.rb --format documentation 2>&1 | tee "$RUNNER_TEMP/virtiofs-evidence.log"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: virtiofs-macos
+          path: ${{ runner.temp }}/virtiofs-evidence.log
