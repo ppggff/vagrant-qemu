@@ -41,4 +41,21 @@ describe "cleanup of a newly launched VM after boot failure" do
     expect { run_with_failure(Vagrant::Errors::VMBootTimeout.new) }.to raise_error(RuntimeError, "launch failed")
     expect(driver).not_to have_received(:stop)
   end
+
+  it "does not stop an already booted VM if outer middleware later raises a boot error" do
+    after_boot = Class.new do
+      def initialize(app, _env)
+        @app = app
+      end
+
+      def call(env)
+        @app.call(env)
+        raise Vagrant::Errors::VMBootTimeout
+      end
+    end
+    actions = [after_boot, VagrantPlugins::QEMU::Action::StartInstance, ->(_env) {}]
+    expect { Vagrant::Action::Warden.new(actions, ctx[:env]).call(ctx[:env]) }.
+      to raise_error(Vagrant::Errors::VMBootTimeout)
+    expect(driver).not_to have_received(:stop)
+  end
 end

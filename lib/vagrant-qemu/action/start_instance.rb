@@ -12,6 +12,7 @@ module VagrantPlugins
         end
 
         def call(env)
+          @start_completed = false
           fw_ports = forwarded_ports(env)
           config = env[:machine].provider_config
 
@@ -63,7 +64,9 @@ module VagrantPlugins
           env[:machine].provider.driver.start(options)
           @control_port = options[:control_port]
           @start_completed = true
-          @app.call(env)
+          result = @app.call(env)
+          @start_completed = false
+          result
         end
 
         # Warden calls recover with the original failure. Stop only instances
