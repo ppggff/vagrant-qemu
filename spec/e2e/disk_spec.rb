@@ -33,6 +33,42 @@ describe "extra disk attachment end-to-end", :requires_qemu do
     expect(ssh[:stdout].lines.last.to_s.strip.to_i).to be >= 2
   end
 
+  it "primary disk grows in place and keeps guest data across reload (#66)" do
+    config_path = @work_dir.join("Vagrantfile")
+    File.write(config_path, <<~RUBY)
+      Vagrant.configure("2") do |config|
+        config.vm.box = "#{test_box}"
+        config.vm.box_check_update = false
+        config.vm.synced_folder ".", "/vagrant", disabled: true
+        config.vm.disk :disk, primary: true, size: "100GB"
+        config.vm.provider "qemu" do |qe|
+          qe.memory = "2G"
+        end
+      end
+    RUBY
+
+    result = vagrant_up(@work_dir, timeout: 600)
+    expect(result[:exit_code]).to eq(0), result.inspect
+    command = %q{lsblk -b -d -n -o SIZE,TYPE | awk '$2=="disk"{print $1}'}
+    before = vagrant_ssh(@work_dir, command: command)
+    expect(before[:exit_code]).to eq(0), before.inspect
+    # The old provider left the boot disk unchanged and attached a blank
+    # 100GB disk. The guest must instead see exactly one, resized boot disk.
+    expect(before[:stdout].lines.map(&:strip).grep(/^\d+$/).map(&:to_i)).to eq [100 * 1024**3]
+
+    marker = vagrant_ssh(@work_dir, command: "echo primary-data-survives > ~/primary-marker")
+    expect(marker[:exit_code]).to eq(0), marker.inspect
+    File.write(config_path, File.read(config_path).sub('"100GB"', '"101GB"'))
+    reload = vagrant_reload(@work_dir, timeout: 600)
+    expect(reload[:exit_code]).to eq(0), reload.inspect
+    after = vagrant_ssh(@work_dir, command: command)
+    expect(after[:exit_code]).to eq(0), after.inspect
+    expect(after[:stdout].lines.map(&:strip).grep(/^\d+$/).map(&:to_i)).to eq [101 * 1024**3]
+    check = vagrant_ssh(@work_dir, command: "cat ~/primary-marker")
+    expect(check[:exit_code]).to eq(0), check.inspect
+    expect(check[:stdout]).to include("primary-data-survives")
+  end
+
   it "reload with an extra disk does not hit a QEMU image-lock error" do
     File.write(@work_dir.join("Vagrantfile"), <<~RUBY)
       Vagrant.configure("2") do |config|
