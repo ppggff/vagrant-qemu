@@ -262,23 +262,38 @@ module VagrantPlugins
       # control_port if set, else the unix monitor socket). Best-effort: the
       # socket may already be gone (e.g. QEMU exited from a prior command), so
       # connection errors are swallowed.
+      # Drain replies until EOF with a deadline: immediately closing both
+      # halves can discard the command on QEMU's hangup event, while an
+      # unbounded read can bypass every shutdown timeout below.
       def send_monitor(options, command)
+        monitor_timeout = [options[:graceful_timeout] || 60, 5].min
         if !options[:control_port].nil?
-          Socket.tcp("localhost", options[:control_port], connect_timeout: 5) do |sock|
+          # start binds the TCP monitor with ipv4=on; avoid an IPv6 localhost
+          # attempt (and its refused-connection delay on Windows).
+          Socket.tcp("127.0.0.1", options[:control_port], connect_timeout: 5) do |sock|
             sock.print "#{command}\n"
             sock.close_write
-            sock.read rescue nil
+            drain_monitor(sock, monitor_timeout)
           end
         else
           unix_socket_path = @tmp_dir.join(@vm_id).join("qemu_socket").to_s
           Socket.unix(unix_socket_path) do |sock|
             sock.print "#{command}\n"
             sock.close_write
-            sock.read rescue nil
+            drain_monitor(sock, monitor_timeout)
           end
         end
       rescue => e
         @logger.debug("monitor command '#{command}' failed: #{e}") if @logger
+      end
+
+      def drain_monitor(sock, timeout)
+        deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout
+        loop do
+          remaining = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
+          break if remaining <= 0 || !IO.select([sock], nil, nil, remaining)
+          break if sock.read_nonblock(4096, exception: false).nil?
+        end
       end
 
       # Poll for up to `timeout` seconds. Return false as soon as the VM has
