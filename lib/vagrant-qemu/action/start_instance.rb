@@ -8,6 +8,7 @@ module VagrantPlugins
         def initialize(app, env)
           @app = app
           @logger = Log4r::Logger.new("vagrant_qemu::action::start_instance")
+          @start_completed = false
         end
 
         def call(env)
@@ -60,7 +61,25 @@ module VagrantPlugins
 
           env[:ui].output(I18n.t("vagrant_qemu.starting"))
           env[:machine].provider.driver.start(options)
+          @control_port = options[:control_port]
+          @start_completed = true
           @app.call(env)
+        end
+
+        # Warden calls recover with the original failure. Stop only instances
+        # successfully launched by this action whose communicator never booted.
+        def recover(env)
+          return unless @start_completed
+          error = env["vagrant.error"]
+          return unless error.is_a?(Vagrant::Errors::VMBootTimeout) ||
+            error.is_a?(Vagrant::Errors::VMBootBadState)
+
+          @start_completed = false
+          @logger.warn("Boot failed; stopping the QEMU instance")
+          env[:machine].provider.driver.stop(control_port: @control_port, graceful_timeout: 1)
+        rescue StandardError => cleanup_error
+          # Preserve the boot error that Warden is already propagating.
+          @logger.warn("Could not stop QEMU after boot failure: #{cleanup_error}")
         end
 
         def forwarded_ports(env)
