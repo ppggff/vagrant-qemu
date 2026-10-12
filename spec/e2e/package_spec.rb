@@ -13,8 +13,13 @@ describe "vagrant package end-to-end", :requires_qemu do
       FileUtils.mkdir_p(@work_dir)
       FileUtils.mkdir_p(@consume_dir)
       example.run
-      vagrant_destroy(@consume_dir) rescue nil
-      vagrant_destroy(@work_dir) rescue nil
+      # The copied consumer Vagrantfile also needs its box name during cleanup,
+      # including when the recipe timed out before its own exit trap finished.
+      cleanup_env = { "PACKAGE_BOX_NAME" => "e2e-packaged", "TEST_BOX" => test_box }
+      [@consume_dir, @work_dir].each do |project|
+        run_command("vagrant", "destroy", "-f", cwd: project, timeout: 300,
+          env: cleanup_env) rescue nil
+      end
       vagrant_box_remove("e2e-packaged", cwd: @work_dir) rescue nil
     end
   end
