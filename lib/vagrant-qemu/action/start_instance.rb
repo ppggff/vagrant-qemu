@@ -79,10 +79,17 @@ module VagrantPlugins
 
           @start_completed = false
           @logger.warn("Boot failed; stopping the QEMU instance")
-          env[:machine].provider.driver.stop(control_port: @control_port, graceful_timeout: 1)
+          # The guest may not be able to handle ACPI yet. Ask QEMU to flush
+          # and quit directly, giving it several seconds before SIGKILL.
+          timeout = [[env[:machine].provider_config.graceful_timeout, 3].max, 10].min
+          driver = env[:machine].provider.driver
+          driver.stop(control_port: @control_port, graceful_timeout: timeout, quit_only: true)
+          message = driver.running? ? "boot_failed_stop_failed" : "boot_failed_stopped"
+          env[:ui].warn(I18n.t("vagrant_qemu.#{message}"))
         rescue StandardError => cleanup_error
           # Preserve the boot error that Warden is already propagating.
           @logger.warn("Could not stop QEMU after boot failure: #{cleanup_error}")
+          env[:ui].warn(I18n.t("vagrant_qemu.boot_failed_stop_failed"))
         end
 
         def forwarded_ports(env)

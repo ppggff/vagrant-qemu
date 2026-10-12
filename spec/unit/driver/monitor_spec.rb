@@ -2,9 +2,10 @@ require "spec_helper"
 require "timeout"
 require "socket"
 
-describe "open issue regressions" do
+describe VagrantPlugins::QEMU::Driver, "monitor delivery" do
   describe "shutdown with a monitor that keeps its connection open (#21)" do
-    it "keeps the read side open for a bounded wait when the monitor does not reply" do
+    [0, 1].each do |timeout|
+    it "keeps the read side open with graceful_timeout=#{timeout}" do
       with_temp_dir do |dir|
         driver = VagrantPlugins::QEMU::Driver.new("vm", dir, dir)
         server = TCPServer.new("127.0.0.1", 0)
@@ -18,7 +19,7 @@ describe "open issue regressions" do
         end
         started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
         Timeout.timeout(2) do
-          driver.send(:send_monitor, { control_port: server.addr[1], graceful_timeout: 1 }, "quit")
+          driver.send(:send_monitor, { control_port: server.addr[1], graceful_timeout: timeout }, "quit")
         end
         elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
         expect(elapsed).to be >= 0.8
@@ -29,6 +30,8 @@ describe "open issue regressions" do
         peer&.close
         server&.close
       end
+    end
+
     end
 
     it "reaches the kill fallback without waiting for monitor EOF" do
@@ -47,7 +50,7 @@ describe "open issue regressions" do
         end
         allow(driver).to receive(:running?).and_return(true)
         allow(driver).to receive(:force_kill)
-        Timeout.timeout(2) { driver.stop(control_port: server.addr[1], graceful_timeout: 0) }
+        Timeout.timeout(4) { driver.stop(control_port: server.addr[1], graceful_timeout: 0) }
         expect(driver).to have_received(:force_kill)
         commands = Timeout.timeout(2) { [received.pop, received.pop] }
         expect(commands).to eq ["system_powerdown\n", "quit\n"]

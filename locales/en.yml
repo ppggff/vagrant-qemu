@@ -13,6 +13,12 @@ en:
       Starting the instance...
     stopping: |-
       Stopping the instance...
+    boot_failed_stopped: |-
+      The QEMU instance was stopped after boot failed. Its disks were kept.
+      Increase config.vm.boot_timeout and run vagrant up again to allow more boot time.
+    boot_failed_stop_failed: |-
+      QEMU could not be stopped after boot failed. Its disks were kept.
+      Run vagrant halt before trying to start the instance again.
     destroying: |-
       Destroying the instance...
     packaging_disk: |-

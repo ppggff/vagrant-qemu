@@ -22,6 +22,7 @@ describe "cleanup after communicator boot timeout", :requires_qemu do
       result = vagrant_up(dir, timeout: 180)
       expect(result[:exit_code]).not_to eq(0), result.inspect
       expect(result[:stderr]).to include("Timed out while waiting for the machine to boot")
+      expect(result[:stdout] + result[:stderr]).to include("Its disks were kept")
       status = vagrant_status(dir)
       expect(status[:exit_code]).to eq(0), status.inspect
       expect(status[:stdout]).to include(",state,stopped")

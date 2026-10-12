@@ -7,6 +7,7 @@ describe "cleanup of a newly launched VM after boot failure" do
   before do
     allow(driver).to receive(:start)
     allow(driver).to receive(:stop)
+    allow(driver).to receive(:running?).and_return(false)
   end
 
   def run_with_failure(error)
@@ -16,7 +17,8 @@ describe "cleanup of a newly launched VM after boot failure" do
 
   it "stops QEMU when Vagrant's communicator boot wait times out" do
     expect { run_with_failure(Vagrant::Errors::VMBootTimeout.new) }.to raise_error(Vagrant::Errors::VMBootTimeout)
-    expect(driver).to have_received(:stop).with(control_port: 33333, graceful_timeout: 1)
+    expect(driver).to have_received(:stop).with(control_port: 33333, graceful_timeout: 10, quit_only: true)
+    expect(ctx[:env][:ui]).to have_received(:warn).with(I18n.t("vagrant_qemu.boot_failed_stopped"))
   end
 
   it "stops QEMU if Vagrant reports an invalid boot state" do

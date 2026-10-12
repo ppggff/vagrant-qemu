@@ -229,13 +229,15 @@ module VagrantPlugins
         # 1. ACPI power button (graceful). Only works if a live guest OS is
         #    there to act on it -- e.g. NOT after `systemctl halt`, which leaves
         #    QEMU running with a halted, unresponsive guest.
-        send_monitor(opts, "system_powerdown")
-        return unless still_running_after?(timeout)
+        unless options[:quit_only]
+          send_monitor(opts, "system_powerdown")
+          return unless still_running_after?(timeout)
+          @logger.warn("VM did not power down within #{timeout}s; sending 'quit' to QEMU")
+        end
 
         # 2. Powerdown didn't take. Ask QEMU itself to quit: it stops the VM,
         #    flushes and closes the qcow2 images, then exits cleanly. Does not
         #    depend on the guest, only on the monitor being reachable.
-        @logger.warn("VM did not power down within #{timeout}s; sending 'quit' to QEMU")
         send_monitor(opts, "quit")
         return unless still_running_after?(timeout)
 
@@ -266,7 +268,7 @@ module VagrantPlugins
       # halves can discard the command on QEMU's hangup event, while an
       # unbounded read can bypass every shutdown timeout below.
       def send_monitor(options, command)
-        monitor_timeout = [options[:graceful_timeout] || 60, 5].min
+        monitor_timeout = [[options[:graceful_timeout] || 60, 1].max, 5].min
         if !options[:control_port].nil?
           # start binds the TCP monitor with ipv4=on; avoid an IPv6 localhost
           # attempt (and its refused-connection delay on Windows).
