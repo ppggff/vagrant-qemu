@@ -101,4 +101,17 @@ describe VagrantPlugins::QEMU::Cap::Disk, ".configure_disks" do
       described_class.configure_disks(machine, [disk])
     end
   end
+
+  it "reattaches an older vagrant_primary disk without recreating its contents" do
+    path = driver.disk_dir.join("vagrant_primary.qcow2")
+    File.write(path, "retained legacy disk contents")
+    legacy = double("disk", type: :disk, name: "vagrant_primary", disk_ext: "qcow2",
+      size: "100GB", id: "legacy-primary", primary: false, provider_config: nil)
+
+    described_class.configure_disks(machine, [legacy])
+
+    expect(driver.attached_drives[:disk].map { |d| d[:Path] }).to eq([path.to_s])
+    expect(File.read(path)).to eq("retained legacy disk contents")
+    expect(driver).not_to have_received(:execute).with("qemu-img", "create", any_args)
+  end
 end
