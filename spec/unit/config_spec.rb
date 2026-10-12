@@ -82,10 +82,11 @@ describe VagrantPlugins::QEMU::Config do
         allow(ENV).to receive(:[]).with("HOMEBREW_PREFIX").and_return(nil)
       end
 
-      it "uses arch-specific Homebrew paths on macOS" do
+      it "uses the host's Homebrew path for every guest architecture on macOS" do
         skip "darwin-only assertion" unless RbConfig::CONFIG["host_os"] =~ /darwin/
-        expect(subject.send(:default_qemu_dir, "aarch64")).to eq "/opt/homebrew/share/qemu"
-        expect(subject.send(:default_qemu_dir, "x86_64")).to eq "/usr/local/share/qemu"
+        prefix = subject.send(:host_arch) == "aarch64" ? "/opt/homebrew" : "/usr/local"
+        expect(subject.send(:default_qemu_dir, "aarch64")).to eq "#{prefix}/share/qemu"
+        expect(subject.send(:default_qemu_dir, "x86_64")).to eq "#{prefix}/share/qemu"
       end
     end
   end
