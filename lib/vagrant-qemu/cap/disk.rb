@@ -117,7 +117,14 @@ module VagrantPlugins
           info = JSON.parse(driver.execute("qemu-img", "info", "--output=json", path.to_s))
           current_size = info.fetch("virtual-size")
           # Never shrink: a smaller target (or reload) must preserve guest data.
-          driver.execute("qemu-img", "resize", path.to_s, size.to_s) if size > current_size
+          if size > current_size
+            machine.ui.detail(I18n.t("vagrant_qemu.primary_disk_growing",
+              name: disk.name, current_size: current_size, requested_size: size))
+            driver.execute("qemu-img", "resize", path.to_s, size.to_s)
+          elsif size < current_size
+            machine.ui.warn(I18n.t("vagrant_qemu.primary_disk_shrink_not_supported",
+              name: disk.name, current_size: current_size, requested_size: size))
+          end
           {UUID: disk.id, Name: disk.name, Path: path.to_s, primary: true}
         end
 

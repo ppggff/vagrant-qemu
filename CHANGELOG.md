@@ -223,3 +223,13 @@
 * README: bring a `socket_opts` `listen=`/`connect=` pair up with
   `vagrant up --no-parallel`. A plain `vagrant up` boots both machines in
   parallel, and if the connector starts first the link never comes up.
+
+# Unreleased
+
+* Report primary boot-disk growth before resizing, and warn when a smaller
+  requested size is skipped. Equal-sized declarations remain quiet.
+* Upgrade note for the primary-disk fix in #88: older primary declarations
+  created a separate `vagrant_primary.qcow2` instead of resizing the boot disk.
+  The file is retained but is no longer automatically attached. To reattach it,
+  replace the old declaration with a non-primary disk named `vagrant_primary`
+  (or its original custom name). See the README for the full migration example.

@@ -39,7 +39,7 @@ Others:
 * Basic suport to forwarded ports, see [vagrant doc](https://www.vagrantup.com/docs/networking/forwarded_ports) for details
 * Support Cloud-init, see [vagrant doc](https://developer.hashicorp.com/vagrant/docs/cloud-init/usage) for details
 * Support Disks, see [vagrant doc](https://developer.hashicorp.com/vagrant/docs/disks/usage) for details
-  * `config.vm.disk :disk, primary: true, size: "100GB"` grows the existing boot disk. A smaller size leaves it unchanged; the provider never shrinks it. This resizes the virtual disk only: grow the guest's partition/filesystem separately, or use a box whose cloud-init handles that. The declaration is reapplied on start/reload, unlike `qe.disk_resize`, which applies during import.
+  * `config.vm.disk :disk, primary: true, size: "100GB"` grows the existing boot disk. The provider reports growth before resizing and warns when a smaller requested size is skipped; it never shrinks the disk. This resizes the virtual disk only: grow the guest's partition/filesystem separately, or use a box whose cloud-init handles that. The declaration is reapplied on start/reload, unlike `qe.disk_resize`, which applies during import. See the [upgrade note for older primary disk declarations](#upgrading-older-primary-disk-declarations).
 * Advanced networking (opt-in): dual-NIC with `private_network` support via QEMU native vmnet (macOS), TAP (Linux), or a `socket` netdev — multicast (Linux/Windows) or point-to-point listen/connect (no root, works on macOS)
 
 ## Usage
@@ -74,6 +74,33 @@ Same as [vagrant-libvirt version-1](https://github.com/vagrant-libvirt/vagrant-l
 * qcow2 image file named `box.img`
 * `metadata.json` file describing box image (provider, virtual_size, format)
 * `Vagrantfile` that does default settings
+
+## Upgrading older primary disk declarations
+
+Before the fix in [PR #88](https://github.com/ppggff/vagrant-qemu/pull/88),
+`primary: true` created a separate blank disk, usually `vagrant_primary.qcow2`,
+instead of growing the boot disk. After upgrading, that extra disk is no longer
+automatically attached. Its file is retained with the VM.
+
+If you stored data on that extra disk, halt the VM and back up the existing file
+under `.vagrant/machines/<name>/qemu/<id>/vagrant_primary.qcow2`. Replace the old
+primary declaration with a non-primary declaration using the same name:
+
+```ruby
+config.vm.disk :disk, name: "vagrant_primary", primary: false, size: "100GB"
+```
+
+Use the size from your original declaration. The provider reuses the existing
+file without recreating it; if it is missing, a new blank disk would be created.
+If you gave the old disk a custom name, use that name instead. Run `vagrant up
+--provider=qemu` and mount its existing filesystem in the guest as before.
+
+If you also want to grow the actual boot disk, add a separate declaration with
+a distinct name, for example:
+
+```ruby
+config.vm.disk :disk, name: "boot", primary: true, size: "100GB"
+```
 
 ## Configuration
 
