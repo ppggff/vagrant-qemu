@@ -65,6 +65,7 @@ module VagrantPlugins
           begin
             env[:machine].provider.driver.start(options)
           rescue StandardError
+            raise if config.virtiofs_qemu_args.empty?
             log_dir = env[:machine].data_dir.join("virtiofs")
             Dir.glob(log_dir.join("*.log").to_s).each do |path|
               begin
