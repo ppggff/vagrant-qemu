@@ -7,24 +7,25 @@ describe "VirtioFS folder lifecycle", :requires_virtiofs do
       @project = dir.join("project")
       FileUtils.mkdir_p(@project.join("first share"))
       FileUtils.mkdir_p(@project.join("second share"))
-      File.write(@project.join("first share/from-host"), "first")
-      File.write(@project.join("second share/from-host"), "second")
+      File.write(@project.join("first share/from-host"), "HOST_PAYLOAD_A_73f9\n")
+      File.write(@project.join("second share/from-host"), "HOST_PAYLOAD_B_92c1\n")
       File.write(@project.join("Vagrantfile"), <<~RUBY)
         Vagrant.configure("2") do |config|
           config.vm.box = #{ENV.fetch("TEST_BOX", "cloud-image/debian-12").inspect}
           config.vm.box_check_update = false
           config.vm.boot_timeout = 600
-          config.vm.allowed_synced_folder_types = [:virtiofs]
+          config.vm.allowed_synced_folder_types = [:qemu_virtiofs]
           config.vm.synced_folder ".", "/vagrant", disabled: true
           # Leave the first type implicit to exercise Vagrant's resolved mapping.
           config.vm.synced_folder "first share", "/mnt/first share"
-          config.vm.synced_folder "second share", "/mnt/second", type: "virtiofs"
+          config.vm.synced_folder "second share", "/mnt/second", type: "qemu_virtiofs"
           config.vm.provider "qemu" do |qe|
-            qe.memory = 1024
+            qe.memory = "1.3G"
             qe.ssh_port = 50222
-            qe.cpu = "max"
-            qe.machine = RbConfig::CONFIG["host_cpu"].match?(/aarch64|arm64/) ? "virt,highmem=on,accel=tcg" : "q35,accel=tcg"
-            qe.qemu_dir = #{ENV["TEST_QEMU_DIR"].inspect} if #{!ENV["TEST_QEMU_DIR"].nil?}
+            if RUBY_PLATFORM.include?("darwin")
+              qe.cpu = "max"
+              qe.machine = "virt,highmem=on,accel=tcg"
+            end
           end
         end
       RUBY
@@ -66,8 +67,9 @@ describe "VirtioFS folder lifecycle", :requires_virtiofs do
   end
 
   def verify_shares
-    result = successful(vagrant_ssh(@project, command: "mount | grep virtiofs; cat '/mnt/first share/from-host'; cat /mnt/second/from-host"))
-    expect(result[:stdout]).to include("virtiofs0", "virtiofs1", "first", "second")
+    result = successful(vagrant_ssh(@project, command: "mount | grep virtiofs && cat '/mnt/first share/from-host' && cat /mnt/second/from-host"))
+    expect(result[:stdout]).to include("virtiofs0 on /mnt/first share type virtiofs", "virtiofs1 on /mnt/second type virtiofs",
+      "HOST_PAYLOAD_A_73f9", "HOST_PAYLOAD_B_92c1")
     successful(vagrant_ssh(@project, command: "sudo sh -c 'echo guest-first > \"/mnt/first share/from-guest\"; echo guest-second > /mnt/second/from-guest'"))
     expect(File.read(@project.join("first share/from-guest")).strip).to eq("guest-first")
     expect(File.read(@project.join("second share/from-guest")).strip).to eq("guest-second")
@@ -76,6 +78,12 @@ describe "VirtioFS folder lifecycle", :requires_virtiofs do
   it "mounts resolved shares, survives reload, and stops daemons on halt and destroy" do
     successful(vagrant_up(@project, timeout: 600))
     verify_shares
+    # Removing a host payload must fail the same SSH command used above.
+    # Mount output alone must never count as proof of host-to-guest reads.
+    File.rename(@project.join("first share/from-host"), @project.join("first share/hidden"))
+    missing = vagrant_ssh(@project, command: "mount | grep virtiofs && cat '/mnt/first share/from-host' && cat /mnt/second/from-host")
+    expect(missing[:exit_code]).not_to eq(0)
+    File.rename(@project.join("first share/hidden"), @project.join("first share/from-host"))
     running = daemons
     expect(running.length).to eq(2)
 

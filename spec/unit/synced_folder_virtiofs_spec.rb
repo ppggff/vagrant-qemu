@@ -37,8 +37,10 @@ describe VagrantPlugins::QEMU::SyncedFolderVirtioFS do
     allow(adapter).to receive(:virtiofsd_help).and_return("--translate-uid --translate-gid")
     allow(adapter).to receive(:spawn).and_return(12345)
     allow(Process).to receive(:detach).with(12345).and_return(double("waiter"))
-    allow(Process).to receive(:kill).with(anything, 12345).and_raise(Errno::ESRCH)
+    allow(Process).to receive(:kill).with(anything, 12345).and_return(1)
     allow(adapter).to receive(:process_alive?).with(12345).and_return(true)
+    allow(adapter).to receive(:process_identity).with(12345).and_return(
+      "Mon Oct 12 12:00:00 2026 virtiofsd --socket-path=#{File.join(Dir.tmpdir, 'vqemu-test123-virtiofs0.sock')}")
     allow(File).to receive(:socket?).and_return(true)
     allow(adapter).to receive(:sleep)
   end
@@ -55,7 +57,7 @@ describe VagrantPlugins::QEMU::SyncedFolderVirtioFS do
       "vhost-user-fs-pci,chardev=char_virtiofs0,tag=virtiofs0")
   end
 
-  { 2048 => "2048M", "2048" => "2048M", "0.5g" => "0.5G" }.each do |input, expected|
+  { 2048 => "2048M", "2048" => "2048M", "0.5g" => "512M", "1024K" => "1M" }.each do |input, expected|
     it "normalizes qe.memory #{input.inspect} to #{expected}" do
       config.memory = input
       adapter.prepare(machine, folders, {})
@@ -113,6 +115,20 @@ describe VagrantPlugins::QEMU::SyncedFolderVirtioFS do
 end
 
 describe "VirtioFS destroy action ordering" do
+  [:halt, :package].each do |command|
+    it "wires daemon cleanup after stopping QEMU for #{command}" do
+      actions = VagrantPlugins::QEMU::Action
+      root = double("root builder", use: nil)
+      created = double("created builder", use: nil)
+      allow(Vagrant::Action::Builder).to receive(:new).and_return(root)
+      expect(root).to receive(:use).with(actions::Call, actions::IsState, :not_created)
+        .and_yield({ result: false }, created)
+      expect(created).to receive(:use).with(actions::StopInstance).ordered
+      expect(created).to receive(:use).with(actions::CleanupVirtioFS).ordered
+      actions.public_send("action_#{command}")
+    end
+  end
+
   it "wires daemon cleanup before Destroy can clear machine.id and data_dir" do
     actions = VagrantPlugins::QEMU::Action
     root = double("root builder")

@@ -105,7 +105,7 @@ jobs:
           path: ${{ runner.temp }}/guest-smoke.log
 
   wsl2-guest-smoke:
-    name: QEMU guest smoke (Windows WSL2)
+    name: QEMU guest smoke and VirtioFS (Windows WSL2)
     runs-on: windows-2025
     timeout-minutes: 60
     steps:
@@ -152,6 +152,16 @@ jobs:
           cd /tmp/vagrant-qemu-ci-source
           gem install bundler --no-document
           bundle install
+          if [ ! -w /dev/kvm ]; then
+            cat > "$VAGRANT_HOME/Vagrantfile" <<'RUBY'
+          Vagrant.configure("2") do |config|
+            config.vm.provider "qemu" do |qe|
+              qe.machine = "q35,accel=tcg"
+              qe.cpu = "max"
+            end
+          end
+          RUBY
+          fi
           /usr/libexec/virtiofsd --version
           TEST_VIRTIOFS=1 TEST_BOX=cloud-image/debian-12 bundle exec rspec spec/e2e/virtiofs_spec.rb --format documentation
       - name: Destroy WSL2 sample guest
@@ -292,6 +302,7 @@ jobs:
       VAGRANT_HOME: /tmp/vq-home
       TEST_VIRTIOFS: '1'
       TEST_BOX: cloud-image/debian-12
+      HOMEBREW_NO_AUTO_UPDATE: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: ruby/setup-ruby@e81a8fa391b11a595c1b7ed84177cc0fe02faf83 # v1.328.0
@@ -300,8 +311,11 @@ jobs:
           bundler-cache: true
       - name: Install macOS VirtioFS daemon and compatible QEMU
         run: |
+          brew tap antimatter-studios/tap
+          git -C "$(brew --repo antimatter-studios/tap)" checkout --detach f51cb0fcd636247ea977898e7d01a893ee05cf86
+          brew list --formula qemu >/dev/null 2>&1 && brew unlink qemu || true
           brew install antimatter-studios/tap/qemu antimatter-studios/tap/virtiofsd
-          echo "TEST_QEMU_DIR=$(brew --prefix antimatter-studios/tap/qemu)/share/qemu" >> "$GITHUB_ENV"
+          echo "QEMU_DIR=$(brew --prefix antimatter-studios/tap/qemu)/share/qemu" >> "$GITHUB_ENV"
           qemu-system-aarch64 -device help | grep vhost-user-fs
       - name: Install Vagrant and the plugin from this commit
         run: |

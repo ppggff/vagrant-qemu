@@ -1,4 +1,5 @@
 require "log4r"
+require_relative "../synced_folder_virtiofs"
 
 module VagrantPlugins
   module QEMU
@@ -23,7 +24,7 @@ module VagrantPlugins
             :machine => config.machine,
             :cpu => config.cpu,
             :smp => config.smp,
-            :memory => config.memory,
+            :memory => config.virtiofs_qemu_args.empty? ? config.memory : SyncedFolderVirtioFS.shared_memory_size(config.memory),
             :net_device => config.net_device,
             :drive_interface => config.drive_interface,
             :qemu_bin => config.qemu_bin,
@@ -75,11 +76,13 @@ module VagrantPlugins
             end
             Dir.glob(log_dir.join("*.pid").to_s).each do |path|
               begin
-                pid = File.read(path).to_i
+                contents = File.read(path).strip
+                next unless contents.match?(/\A[1-9]\d*\z/)
+                pid = contents.to_i
                 alive = begin
                   Process.kill(0, pid)
                   true
-                rescue Errno::ESRCH
+                rescue Errno::ESRCH, Errno::EPERM
                   false
                 end
                 socket_path = path.sub(/\.pid$/, ".sock_path")

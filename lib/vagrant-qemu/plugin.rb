@@ -54,7 +54,7 @@ module VagrantPlugins
         Cap::Disk
       end
 
-      synced_folder("virtiofs", 0) do
+      synced_folder("qemu_virtiofs", 0) do
         require_relative "synced_folder_virtiofs"
         SyncedFolderVirtioFS
       end

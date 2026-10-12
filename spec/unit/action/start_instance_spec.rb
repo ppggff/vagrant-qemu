@@ -3,6 +3,14 @@ require "spec_helper"
 describe VagrantPlugins::QEMU::Action::StartInstance do
   let(:app) { double("app", call: nil) }
 
+  it "uses the aligned VirtioFS backend size for guest RAM" do
+    ctx = mock_vagrant_env(provider_config_overrides: {
+      memory: "1.3G", virtiofs_qemu_args: ["-object", "memory-backend-file,id=mem,size=1332M"]
+    })
+    expect(ctx[:driver]).to receive(:start).with(hash_including(memory: "1332M"))
+    described_class.new(app, ctx[:env]).call(ctx[:env])
+  end
+
   it "passes all config options to driver.start" do
     ctx = mock_vagrant_env(
       provider_config_overrides: { memory: "8G", advanced_network: true, net_mode: :vmnet_shared },

@@ -17,7 +17,7 @@ module VagrantPlugins
           # prepare sees Vagrant's resolved folder types. Use precisely that
           # mapping, including shares selected through allowed_synced_folder_types.
           mounts_file = machine.data_dir.join("virtiofs", "mounts.json")
-          if mounts_file.file?
+          if !machine.provider_config.virtiofs_qemu_args.empty? && mounts_file.file?
             JSON.parse(File.read(mounts_file)).each do |tag, guestpath|
 
               escaped_guestpath = Shellwords.escape(guestpath)

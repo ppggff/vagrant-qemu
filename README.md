@@ -74,22 +74,26 @@ Install `virtiofsd` on the host and use a Linux guest with VirtioFS support.
 The plugin searches `PATH`, `/usr/libexec`, and `/usr/lib/qemu` for the daemon;
 set `qe.virtiofsd_bin` when it is installed elsewhere.
 
-On Apple Silicon macOS, install the macOS daemon port and the QEMU build
-with vhost-user-fs support from the tap:
+Apple Silicon macOS support is experimental. The community tap maintained by
+christhomas supplies his macOS virtiofsd port and upstream QEMU built with
+`--enable-vhost-user`. This QEMU formula conflicts with stock Homebrew `qemu`;
+unlink or uninstall the stock formula before installing the tap build:
 
 ```sh
+brew unlink qemu # if the stock formula is installed
 brew install antimatter-studios/tap/qemu antimatter-studios/tap/virtiofsd
 ```
 
-CI tests this combination with TCG. Linux and Windows WSL2 use the Ubuntu
+CI pins the tap to `f51cb0fcd636247ea977898e7d01a893ee05cf86` and tests this
+combination with TCG; it does not establish macOS HVF support. Linux and Windows WSL2 use the Ubuntu
 `virtiofsd` package. In WSL2 both QEMU and the daemon run inside Linux, so
 shares can live on the native Linux filesystem; Windows DrvFs paths are
-not required. Use `type: "virtiofs"` explicitly, or restrict
-`config.vm.allowed_synced_folder_types` to `[:virtiofs]`; its priority is
+not required. Use `type: "qemu_virtiofs"` explicitly, or restrict
+`config.vm.allowed_synced_folder_types` to `[:qemu_virtiofs]`; its priority is
 below rsync and NFS so installing the daemon does not override those types.
 
 ```ruby
-config.vm.synced_folder "./src", "/home/vagrant/src", type: "virtiofs"
+config.vm.synced_folder "./src", "/home/vagrant/src", type: "qemu_virtiofs"
 config.vm.provider "qemu" do |qe|
   qe.virtiofsd_bin = "/path/to/virtiofsd" # optional
 end
@@ -99,7 +103,8 @@ end
 translation is used when the installed daemon supports it. Additional daemon
 arguments can be passed through `extra_virtiofsd_args` as an array.
 VirtioFS requires a positive `qe.memory`: bare numbers mean MiB, and
-`K`, `M`, `G`, and `T` suffixes are accepted. `nil` is rejected for VirtioFS
+`K`, `M`, `G`, and `T` suffixes are accepted. The size is rounded up to a whole
+MiB for both guest RAM and its shared backend (`"1.3G"` becomes `1332M`). `nil` is rejected for VirtioFS
 because the shared memory backend needs an explicit size. QEMU creates an
 unlinked RAM backing file in the host temporary directory.
 
@@ -621,7 +626,7 @@ TEST_VMNET=1 sudo -E bundle exec rspec spec/e2e/advanced_network_spec.rb
 TEST_SOCKET_VMNET=1 bundle exec rspec spec/e2e/socket_vmnet_spec.rb
 
 # VirtioFS: install the host daemon (and compatible QEMU on macOS) first.
-# This test uses TCG and a Debian box matching the host architecture.
+# Uses Linux provider defaults (KVM), macOS TCG, and a box matching the host.
 TEST_VIRTIOFS=1 TEST_BOX=cloud-image/debian-12 bundle exec rspec spec/e2e/virtiofs_spec.rb
 ```
 

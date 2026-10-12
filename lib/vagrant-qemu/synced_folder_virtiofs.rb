@@ -18,14 +18,37 @@ module VagrantPlugins
       def usable?(machine, raise_error = false)
         return false unless machine.provider_name == :qemu
 
-        if machine.provider_config.virtiofsd_bin.nil?
+        binary = machine.provider_config.virtiofsd_bin
+        executable = binary && (Vagrant::Util::Which.which(binary) || binary)
+        unless executable && File.file?(executable) && File.executable?(executable)
           if raise_error
             raise Errors::VirtiofsdNotFound
           end
           return false
         end
 
+        config = machine.provider_config
+        command = config.qemu_bin.nil? ? ["qemu-system-#{config.arch}"] : Array(config.qemu_bin)
+        output, status = Open3.capture2e(*command, "-device", "help")
+        unless status.success? && output.include?('"vhost-user-fs-pci"')
+          raise Errors::ConfigError, err: "QEMU must support vhost-user-fs-pci for qemu_virtiofs synced folders." if raise_error
+          return false
+        end
         true
+      rescue Errno::ENOENT, Errno::EACCES
+        raise Errors::ConfigError, err: "Cannot execute QEMU to check vhost-user-fs-pci support." if raise_error
+        false
+      end
+
+      # Both -m and the backend must use the same whole-MiB size. Rational
+      # arithmetic avoids floating point rounding at exact MiB boundaries.
+      def self.shared_memory_size(value)
+        match = /\A(\d+(?:\.\d+)?)([KMGT]?)\z/i.match(value.to_s)
+        unless match && Rational(match[1]).positive?
+          raise Errors::ConfigError, err: "VirtioFS requires a positive qe.memory (MiB or a K/M/G/T suffix); nil is not supported."
+        end
+        units = { "" => 1, "K" => Rational(1, 1024), "M" => 1, "G" => 1024, "T" => 1024 * 1024 }
+        "#{(Rational(match[1]) * units.fetch(match[2].upcase)).ceil}M"
       end
 
       def prepare(machine, folders, opts)
@@ -60,7 +83,7 @@ module VagrantPlugins
           pid_file = virtiofs_dir.join("#{tag}.pid").to_s
 
           # Clean up any stale virtiofsd from a previous run
-          cleanup_virtiofsd(pid_file, socket_path)
+          cleanup_virtiofsd(pid_file, socket_path, virtiofsd)
 
           # Start virtiofsd
           log_file = virtiofs_dir.join("#{tag}.log").to_s
@@ -90,6 +113,11 @@ module VagrantPlugins
           # Record ownership before waiting so failed startup can be cleaned up.
           File.write(pid_file, pid.to_s)
           File.write(virtiofs_dir.join("#{tag}.sock_path").to_s, socket_path)
+          identity = process_identity(pid)
+          if identity
+            File.write(pid_file.sub(/\.pid$/, ".process.json"), JSON.generate(
+              "identity" => identity, "binary" => virtiofsd))
+          end
 
           # The socket path can appear before virtiofsd starts listening.
           30.times do
@@ -106,7 +134,6 @@ module VagrantPlugins
             log = File.read(log_file)
             machine.ui.error("virtiofsd pid #{pid} exited with #{status.inspect}") if status
             machine.ui.error("virtiofsd log (#{log_file}):\n#{log.empty? ? '(empty)' : log}")
-            Process.kill("TERM", pid) rescue nil
             raise Errors::VirtiofsdStartFailed,
               hostpath: hostpath,
               log_file: log_file
@@ -148,7 +175,7 @@ module VagrantPlugins
         Dir.glob(virtiofs_dir.join("*.pid").to_s).each do |pid_file|
           sock_path_file = pid_file.sub(/\.pid$/, ".sock_path")
           sock_file = File.exist?(sock_path_file) ? File.read(sock_path_file).strip : nil
-          cleanup_virtiofsd(pid_file, sock_file)
+          cleanup_virtiofsd(pid_file, sock_file, machine.provider_config.virtiofsd_bin)
           File.delete(sock_path_file) if File.exist?(sock_path_file)
         end
 
@@ -163,40 +190,62 @@ module VagrantPlugins
       private
 
       def normalized_memory(value)
-        match = /\A(\d+(?:\.\d+)?)([KMGT]?)\z/i.match(value.to_s)
-        unless match && match[1].to_f.positive?
-          raise Errors::ConfigError, err: "VirtioFS requires a positive qe.memory (MiB or a K/M/G/T suffix); nil is not supported."
-        end
-        "#{match[1]}#{match[2].empty? ? 'M' : match[2].upcase}"
+        self.class.shared_memory_size(value)
       end
 
       def process_alive?(pid)
         Process.kill(0, pid)
         true
-      rescue Errno::ESRCH
+      rescue Errno::ESRCH, Errno::EPERM
         false
       end
 
-      def cleanup_virtiofsd(pid_file, socket_path)
+      def process_identity(pid)
+        return unless process_alive?(pid)
+        # lstart distinguishes a reused PID; args verifies our daemon and socket.
+        output, status = Open3.capture2e({ "LC_ALL" => "C" }, "ps", "-ww", "-p", pid.to_s, "-o", "lstart=", "-o", "args=")
+        output.strip if status.success? && !output.strip.empty?
+      rescue Errno::ENOENT, Errno::EACCES
+        nil
+      end
+
+      def owned_daemon?(pid, socket_path, binary, saved_identity)
+        return false unless socket_path && binary
+        identity = process_identity(pid)
+        return false unless identity && (!saved_identity || identity == saved_identity)
+        # ps prints the start time as five words before the command line.
+        command = identity.split(/\s+/, 6).last
+        binary_name = File.basename(binary)
+        command.match?(/(?:\A|\s)(?:\S*\/)?#{Regexp.escape(binary_name)}(?:\s|\z)/) &&
+          command.include?("--socket-path=#{socket_path}")
+      end
+
+      def cleanup_virtiofsd(pid_file, socket_path, binary)
+        process_file = pid_file.sub(/\.pid$/, ".process.json")
         if File.exist?(pid_file)
-          pid = File.read(pid_file).strip.to_i
+          contents = File.read(pid_file).strip
+          pid = contents.match?(/\A[1-9]\d*\z/) ? contents.to_i : nil
+          record = File.file?(process_file) ? JSON.parse(File.read(process_file)) : {}
+          binary = record.fetch("binary", binary)
+          identity = record["identity"]
           begin
-            Process.kill("TERM", pid)
-            5.times do
-              begin
-                Process.kill(0, pid)
+            if pid && owned_daemon?(pid, socket_path, binary, identity)
+              Process.kill("TERM", pid)
+              5.times do
+                break unless owned_daemon?(pid, socket_path, binary, identity)
                 sleep 0.5
-              rescue Errno::ESRCH
-                break
               end
+              Process.kill("KILL", pid) if owned_daemon?(pid, socket_path, binary, identity)
             end
-            Process.kill("KILL", pid) rescue nil
-          rescue Errno::ESRCH
-            # Already dead
+          rescue Errno::ESRCH, Errno::EPERM
+            # Dead, reused, or inaccessible PIDs must not block lifecycle actions.
           end
-          File.delete(pid_file) rescue nil
         end
-        File.delete(socket_path) if socket_path && File.exist?(socket_path)
+      rescue JSON::ParserError
+        # Corrupt ownership records are insufficient authority to signal a PID.
+      ensure
+        FileUtils.rm_f([pid_file, process_file])
+        FileUtils.rm_f(socket_path) if socket_path
       end
 
       def virtiofsd_help(binary)
