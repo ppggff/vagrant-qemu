@@ -1,4 +1,6 @@
 require "log4r"
+require "json"
+require "vagrant/util/numeric"
 
 module VagrantPlugins
   module QEMU
@@ -47,7 +49,7 @@ module VagrantPlugins
               disk_data = setup_disk(machine, disk)
               if !disk_data.empty?
                 configured_disks[:disk] << disk_data
-                machine.provider.driver.attach_disk(disk_data)
+                machine.provider.driver.attach_disk(disk_data) unless disk.primary
               end
             when :floppy
               machine.ui.info(I18n.t("vagrant_qemu.errors.floppy_unsupported"))
@@ -82,6 +84,8 @@ module VagrantPlugins
         # @param [Config::Disk] disk - the current disk to configure
         # @return [Hash] - disk_metadata
         def self.setup_disk(machine, disk)
+          return setup_primary_disk(machine, disk) if disk.primary
+
           disk_dir = machine.provider.driver.disk_dir
           disk_path = disk_dir.join("#{disk.name}.#{disk.disk_ext}")
 
@@ -97,6 +101,24 @@ module VagrantPlugins
           end
 
           {UUID: disk.id, Name: disk.name, Path: disk_path.to_s, primary: !!disk.primary}
+        end
+
+        # The box's first overlay is already attached as disk0 by Driver#start.
+        # A primary disk declaration resizes that disk; attaching a new blank
+        # qcow2 would leave the guest's boot disk unchanged.
+        def self.setup_primary_disk(machine, disk)
+          driver = machine.provider.driver
+          path = driver.box_disk_paths.first
+          raise Errors::ConfigError, err: "Cannot resize primary disk: no box disk exists" if path.nil?
+
+          size = disk.size.is_a?(Integer) ? disk.size : Vagrant::Util::Numeric.string_to_bytes(disk.size)
+          raise Errors::ConfigError, err: "Primary disk size must be positive" unless size && size > 0
+
+          info = JSON.parse(driver.execute("qemu-img", "info", "--output=json", path.to_s))
+          current_size = info.fetch("virtual-size")
+          # Never shrink: a smaller target (or reload) must preserve guest data.
+          driver.execute("qemu-img", "resize", path.to_s, size.to_s) if size > current_size
+          {UUID: disk.id, Name: disk.name, Path: path.to_s, primary: true}
         end
 
         # Sets up all disk configs of type `:dvd`

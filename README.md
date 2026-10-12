@@ -39,6 +39,7 @@ Others:
 * Basic suport to forwarded ports, see [vagrant doc](https://www.vagrantup.com/docs/networking/forwarded_ports) for details
 * Support Cloud-init, see [vagrant doc](https://developer.hashicorp.com/vagrant/docs/cloud-init/usage) for details
 * Support Disks, see [vagrant doc](https://developer.hashicorp.com/vagrant/docs/disks/usage) for details
+  * `config.vm.disk :disk, primary: true, size: "100GB"` grows the existing boot disk. A smaller size leaves it unchanged; the provider never shrinks it. This resizes the virtual disk only: grow the guest's partition/filesystem separately, or use a box whose cloud-init handles that. The declaration is reapplied on start/reload, unlike `qe.disk_resize`, which applies during import.
 * Advanced networking (opt-in): dual-NIC with `private_network` support via QEMU native vmnet (macOS), TAP (Linux), or a `socket` netdev — multicast (Linux/Windows) or point-to-point listen/connect (no root, works on macOS)
 
 ## Usage
