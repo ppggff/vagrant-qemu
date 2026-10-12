@@ -25,11 +25,12 @@ describe "open issue regressions" do
 
     it "grows the existing boot overlay instead of attaching a blank disk" do
       path = @driver.disk_dir.join("linked-box.img").to_s
-      expect(ui).to receive(:detail).with(
-        "Growing primary disk 'root' from 68719476736 to 107374182400 bytes.\n" \
-        "Grow the guest partition and filesystem separately if needed."
-      ).ordered
-      expect(@driver).to receive(:execute).with("qemu-img", "resize", path, "107374182400").ordered
+      allow(@driver).to receive(:execute).with("qemu-img", "resize", path, "107374182400") do
+        expect(ui).to have_received(:detail).with(
+          "Growing primary disk 'root' from 68719476736 to 107374182400 bytes.\n" \
+          "Grow the guest partition and filesystem separately if needed."
+        )
+      end
       metadata = VagrantPlugins::QEMU::Cap::Disk.configure_disks(machine, [disk])
       expect(@driver).to have_received(:execute).with("qemu-img", "resize", path, "107374182400")
       expect(metadata[:disk].first[:Path]).to eq path
