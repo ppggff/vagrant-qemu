@@ -1,5 +1,4 @@
 require_relative "helper"
-require "securerandom"
 
 # End-to-end round-trip for `vagrant package`. Exercises the INSTALLED plugin
 # (see helper.rb), so rebuild + reinstall before running:
@@ -20,67 +19,21 @@ describe "vagrant package end-to-end", :requires_qemu do
     end
   end
 
-  def write_source_vagrantfile
-    File.write(@work_dir.join("Vagrantfile"), <<~RUBY)
-      Vagrant.configure("2") do |config|
-        config.vm.box = "#{test_box}"
-        config.vm.box_check_update = false
-        config.vm.synced_folder ".", "/vagrant", disabled: true
-        config.vm.provider "qemu" do |qe|
-          qe.memory = "2G"
-        end
-      end
-    RUBY
-  end
-
   it "packages a running VM into a box that boots again (round-trip)" do
-    write_source_vagrantfile
-    expect(vagrant_up(@work_dir)[:exit_code]).to eq 0
+    workspace = @work_dir.parent.join("recipe")
+    @work_dir = workspace.join("source")
+    @consume_dir = workspace.join("consumer")
+    @box_path = workspace.join("portable.box")
+    recipe = VagrantPlugins::QEMU.source_root.join("examples/package-roundtrip/run.sh")
 
-    # Write into the guest disk, not a synced folder: a fresh consumer must
-    # receive these bytes through the exported image rather than host files.
-    marker = "package-roundtrip-#{SecureRandom.hex(16)}"
-    written = vagrant_ssh(@work_dir,
-      command: "echo #{marker} > ~/package-roundtrip-marker && sync")
-    expect(written[:exit_code]).to eq(0), written.inspect
-
-    result = vagrant_package(@work_dir, output: @box_path)
-    expect(result[:exit_code]).to eq 0
-    expect(File.exist?(@box_path)).to be true
-
-    # Box layout: box.img + metadata.json + Vagrantfile.
-    listing = `tar tzf #{@box_path}`
-    expect(listing).to include("box.img")
-    expect(listing).to include("metadata.json")
-    expect(listing).to include("Vagrantfile")
-
-    # box.img must be a self-contained qcow2 (overlay flattened, no backing).
-    # Extract everything: members may be stored as "./box.img", which GNU tar
-    # will not match by bare name.
-    Dir.mktmpdir do |ex|
-      system("tar xzf #{@box_path} -C #{ex}")
-      info = `qemu-img info --output=json #{File.join(ex, "box.img")}`
-      expect(info).to include('"format": "qcow2"')
-      expect(info).not_to match(/backing-filename/)
-    end
-
-    # Consume the packaged box in a fresh project and boot it.
-    expect(vagrant_box_add("e2e-packaged", @box_path, cwd: @work_dir)[:exit_code]).to eq 0
-    File.write(@consume_dir.join("Vagrantfile"), <<~RUBY)
-      Vagrant.configure("2") do |config|
-        config.vm.box = "e2e-packaged"
-        config.vm.box_check_update = false
-        config.vm.synced_folder ".", "/vagrant", disabled: true
-        config.vm.provider "qemu" do |qe|
-          qe.memory = "2G"
-        end
-      end
-    RUBY
-    expect(vagrant_up(@consume_dir)[:exit_code]).to eq 0
-    expect(vagrant_ssh(@consume_dir, command: "echo roundtrip-ok")[:stdout]).to include("roundtrip-ok")
-    restored = vagrant_ssh(@consume_dir, command: "cat ~/package-roundtrip-marker")
-    expect(restored[:exit_code]).to eq(0), restored.inspect
-    expect(restored[:stdout].lines.map(&:strip)).to include(marker)
+    result = run_command("bash", recipe.to_s, workspace.to_s,
+      cwd: workspace.parent, timeout: 900,
+      env: { "TEST_BOX" => test_box, "PACKAGE_BOX_NAME" => "e2e-packaged" })
+    expect(result[:exit_code]).to eq(0), "#{result[:stdout]}\n#{result[:stderr]}"
+    marker = File.read(workspace.join("verified-marker.txt")).strip
+    expect(marker).to match(/\Apackage-roundtrip-[0-9a-f]{32}\z/)
+    expect(result[:stdout]).to include("Package round-trip verified: #{marker}")
+    expect(@box_path).to be_file
   end
 
   it "does not bake environment-specific network config into the box" do

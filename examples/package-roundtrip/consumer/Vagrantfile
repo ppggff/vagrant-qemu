@@ -1,0 +1,13 @@
+Vagrant.configure("2") do |config|
+  config.vm.box = ENV.fetch("PACKAGE_BOX_NAME")
+  config.vm.box_check_update = false
+  config.vm.boot_timeout = 600
+  config.vm.synced_folder ".", "/vagrant", disabled: true
+
+  config.vm.provider "qemu" do |qemu|
+    qemu.memory = "1G"
+    qemu.smp = "1"
+    qemu.qemu_dir = ENV["QEMU_DIR"] if ENV["QEMU_DIR"]
+    qemu.ssh_auto_correct = true
+  end
+end

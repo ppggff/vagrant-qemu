@@ -101,7 +101,11 @@ module E2EHelper
   private
 
   def run_vagrant_cmd(*args, cwd:, timeout: 120)
-    env = { "VAGRANT_CWD" => cwd.to_s }
+    run_command("vagrant", *args, cwd: cwd, timeout: timeout)
+  end
+
+  def run_command(*args, cwd:, timeout: 120, env: {})
+    env = { "VAGRANT_CWD" => cwd.to_s }.merge(env)
     stdout, stderr, status = nil, nil, nil
     timed_out = false
 
@@ -113,7 +117,7 @@ module E2EHelper
       # Timeout.timeout around capture3 doesn't stop the child: popen3's
       # ensure joins it, so the suite silently waits out e.g. the box's
       # 30-minute boot_timeout.
-      Open3.popen3(env, "vagrant", *args, pgroup: true) do |stdin, out, err, wait_thr|
+      Open3.popen3(env, *args, pgroup: true) do |stdin, out, err, wait_thr|
         stdin.close
         out_reader = Thread.new { out.read }
         err_reader = Thread.new { err.read }
