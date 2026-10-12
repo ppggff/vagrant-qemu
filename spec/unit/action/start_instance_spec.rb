@@ -61,4 +61,15 @@ describe VagrantPlugins::QEMU::Action::StartInstance do
       expect(ports).to be_empty
     end
   end
+  describe "direct SSH with the default NIC disabled" do
+    it "ignores an inherited corrected SSH port when there is no provider NIC" do
+      ctx = mock_vagrant_env(provider_config_overrides: { net_device: nil, ssh_port: 22 },
+        networks: [[:forwarded_port, { id: "ssh", host: 2200, guest: 22 }]])
+      options = nil
+      allow(ctx[:driver]).to receive(:start) { |opts| options = opts }
+      VagrantPlugins::QEMU::Action::StartInstance.new(app, ctx[:env]).call(ctx[:env])
+      expect(options[:ssh_port]).to eq 22
+    end
+  end
+
 end
