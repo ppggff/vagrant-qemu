@@ -75,6 +75,41 @@ Same as [vagrant-libvirt version-1](https://github.com/vagrant-libvirt/vagrant-l
 * `metadata.json` file describing box image (provider, virtual_size, format)
 * `Vagrantfile` that does default settings
 
+## Package a QEMU machine into a reusable box
+
+After creating and configuring a QEMU machine, run these commands in its project:
+
+```sh
+vagrant up --provider=qemu
+vagrant package --output portable.box
+vagrant box add local/portable portable.box --provider=libvirt
+```
+
+Packaging stops the source machine and flattens its box disk overlays into
+self-contained qcow2 images. The archive includes `metadata.json` and a
+Vagrantfile that records the guest architecture. The box uses `libvirt` as its
+format, while the machine continues to run with the `qemu` provider.
+
+Create a fresh project to use it:
+
+```sh
+mkdir portable-project
+cd portable-project
+vagrant init local/portable
+vagrant up --provider=qemu
+```
+
+Guest disk changes are included. Additional disks, DVDs and cloud-init seed ISOs
+are excluded. Define host-specific networking and synced folders in the consuming
+project's Vagrantfile; source forwarding rules and MAC addresses are not copied
+into the box. For a named machine in a multi-machine project, use
+`vagrant package NAME --output portable.box`.
+
+The [package round-trip test](spec/e2e/package_spec.rb) writes a marker inside the
+guest, exports its box, imports it into a fresh project and checks that the marker
+survives. It also checks that the image has no backing-file dependency and that
+host forwarding configuration is excluded.
+
 ## Configuration
 
 ### Options

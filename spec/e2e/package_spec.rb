@@ -1,4 +1,5 @@
 require_relative "helper"
+require "securerandom"
 
 # End-to-end round-trip for `vagrant package`. Exercises the INSTALLED plugin
 # (see helper.rb), so rebuild + reinstall before running:
@@ -36,6 +37,13 @@ describe "vagrant package end-to-end", :requires_qemu do
     write_source_vagrantfile
     expect(vagrant_up(@work_dir)[:exit_code]).to eq 0
 
+    # Write into the guest disk, not a synced folder: a fresh consumer must
+    # receive these bytes through the exported image rather than host files.
+    marker = "package-roundtrip-#{SecureRandom.hex(16)}"
+    written = vagrant_ssh(@work_dir,
+      command: "echo #{marker} > ~/package-roundtrip-marker && sync")
+    expect(written[:exit_code]).to eq(0), written.inspect
+
     result = vagrant_package(@work_dir, output: @box_path)
     expect(result[:exit_code]).to eq 0
     expect(File.exist?(@box_path)).to be true
@@ -70,6 +78,9 @@ describe "vagrant package end-to-end", :requires_qemu do
     RUBY
     expect(vagrant_up(@consume_dir)[:exit_code]).to eq 0
     expect(vagrant_ssh(@consume_dir, command: "echo roundtrip-ok")[:stdout]).to include("roundtrip-ok")
+    restored = vagrant_ssh(@consume_dir, command: "cat ~/package-roundtrip-marker")
+    expect(restored[:exit_code]).to eq(0), restored.inspect
+    expect(restored[:stdout].lines.map(&:strip)).to include(marker)
   end
 
   it "does not bake environment-specific network config into the box" do
