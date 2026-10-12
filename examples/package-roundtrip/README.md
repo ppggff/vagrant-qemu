@@ -61,6 +61,32 @@ exit. It retains `portable.box`, the copied Vagrantfiles, extracted box contents
 for another run. `TEST_BOX` can select another box compatible with the host;
 `TEST_BOX_VERSION` selects a specific version of that source box.
 
+## Recorded local verification
+
+Verified on 2026-10-12 using Linux ARM64 (Raspberry Pi), KVM, Vagrant 2.4.9,
+QEMU 10.0.13 and plugin/recipe source commit
+[`04baba0`](https://github.com/antimatter-studios/vagrant-qemu/commit/04baba0422f380b6fc0ffabf7fa06bcaf7d10026).
+The source was `cloud-image/debian-12`, ARM64, version `20260909.2596.0`.
+
+After the firmware setup above, the command was:
+
+```sh
+TEST_BOX_VERSION=20260909.2596.0 examples/package-roundtrip/run.sh /tmp/qemu-package-proof
+```
+
+The source VM was destroyed before the consumer was created. The run exited with
+status zero and reported:
+
+```text
+Exported image: standalone qcow2
+Package round-trip verified: package-roundtrip-3dfb0a8f40f2ddda9361f6bb5a21b750
+```
+
+The exported image had a 10 GiB virtual size and no backing filename. This is a
+Linux/KVM result. CI executes the same script on Linux, macOS and inside Windows
+WSL2; the hosted macOS recipe uses TCG because those runners lack HVF. On Windows,
+run the shell recipe inside WSL2.
+
 ## What the recipe executes
 
 The script copies [source/Vagrantfile](source/Vagrantfile) into a fresh source
