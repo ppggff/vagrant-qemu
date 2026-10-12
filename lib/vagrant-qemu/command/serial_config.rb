@@ -19,12 +19,8 @@ module VagrantPlugins
           return if argv.nil?
 
           records = []
-          with_target_vms(argv, provider: :qemu) do |machine|
-            unless machine.provider_name == :qemu
-              raise Vagrant::Errors::ActiveMachineWithDifferentProvider,
-                name: machine.name.to_s, active_provider: machine.provider_name.to_s,
-                requested_provider: "qemu"
-            end
+          with_target_vms(argv) do |machine|
+            next unless machine.provider_name == :qemu
 
             endpoint = if machine.id
               machine.provider.driver.serial_endpoint(machine.provider_config.debug_port)
@@ -33,7 +29,7 @@ module VagrantPlugins
           end
 
           if json
-            @env.ui.output(JSON.generate(records))
+            safe_puts(JSON.generate(records))
           else
             records.each do |record|
               endpoint = record[:endpoint]
@@ -45,7 +41,7 @@ module VagrantPlugins
               else
                 lines << "  Host #{endpoint[:host]}" << "  Port #{endpoint[:port]}"
               end
-              @env.ui.output(lines.join("\n"))
+              safe_puts(lines.join("\n"))
             end
           end
           0
