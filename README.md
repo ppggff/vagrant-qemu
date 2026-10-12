@@ -636,6 +636,31 @@ official build from [vagrantup.com](https://www.vagrantup.com/downloads) if
 needed). Do **not** work around it by pinning `logger` in a Gemfile — that tends
 to deepen the conflict.
 
+### 6. AlmaLinux 9 x86_64 guest times out waiting for SSH on Apple Silicon
+
+Check the guest CPU model if the Vagrantfile explicitly sets `qe.cpu = "qemu64"`.
+With the `almalinux/9` box version `9.2.20230513`, that model caused a boot timeout
+in an Apple Silicon test; changing it to `max` allowed the guest to boot and SSH
+successfully. For cross-architecture emulation, use:
+
+```ruby
+config.vm.provider "qemu" do |qe|
+  qe.arch = "x86_64"
+  qe.cpu = "max"
+end
+```
+
+The provider already selects `max` by default when the guest architecture differs
+from the host, so removing an explicit `qemu64` override also restores that default.
+CPU models determine which instruction-set features the guest can use; QEMU's
+[CPU ABI table](https://www.qemu.org/docs/master/system/qemu-cpu-models.html#abi-compatibility-levels-for-cpu-models)
+places `qemu64` below the x86-64-v2 baseline required by
+[RHEL 9](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/9/html/considerations_in_adopting_rhel_9/ref_architectures_considerations-in-adopting-rhel-9).
+
+This workaround is for an x86_64 guest running under TCG emulation. A shell
+provisioner that installs OpenSSH cannot fix a failure before the first SSH
+connection, because provisioning starts after the communicator becomes ready.
+
 ## TODO
 
 * Support NFS shared folder
