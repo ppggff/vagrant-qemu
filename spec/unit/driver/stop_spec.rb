@@ -111,4 +111,33 @@ describe VagrantPlugins::QEMU::Driver, "#stop" do
 
     expect { subject.stop(control_port: nil, graceful_timeout: 1) }.not_to raise_error
   end
+
+  context "when force_kill reads the PID file" do
+    before do
+      allow(subject).to receive(:sleep)
+      allow(subject).to receive(:running?).and_return(true)
+      allow(subject).to receive(:send_monitor)
+      @pid_file = @tmp_base.join("vagrant-qemu", vm_id, "qemu.pid")
+      FileUtils.mkdir_p(@pid_file.dirname)
+    end
+
+    it "does nothing when QEMU removes the file before it is read" do
+      File.write(@pid_file, "999999999")
+      pid_file = @pid_file
+      allow(File).to receive(:read).and_wrap_original do |original, path, *args|
+        File.delete(pid_file) if path.to_s == pid_file.to_s && File.exist?(pid_file)
+        original.call(path, *args)
+      end
+      expect(Process).not_to receive(:kill)
+
+      expect { subject.stop(control_port: nil, graceful_timeout: 1) }.not_to raise_error
+    end
+
+    it "never signals a PID read from an empty file" do
+      File.write(@pid_file, "")
+      expect(Process).not_to receive(:kill)
+
+      expect { subject.stop(control_port: nil, graceful_timeout: 1) }.not_to raise_error
+    end
+  end
 end

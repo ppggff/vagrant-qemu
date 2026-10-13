@@ -249,6 +249,14 @@ module VagrantPlugins
 
       private
 
+      # QEMU unlinks its pidfile on exit, so the file can vanish between any
+      # existence check and the read: read it once and treat ENOENT as gone.
+      def read_pid
+        File.read(@tmp_dir.join(@vm_id).join("qemu.pid")).to_i
+      rescue Errno::ENOENT
+        nil
+      end
+
       # Prefer the control_port the VM was actually started with (persisted
       # in options.yml) so halt still works after a Vagrantfile edit.
       def with_persisted_control_port(options)
@@ -310,10 +318,9 @@ module VagrantPlugins
       end
 
       def force_kill
-        pid_file = @tmp_dir.join(@vm_id).join("qemu.pid")
-        return unless pid_file.file?
+        pid = read_pid
+        return if pid.nil? || pid <= 0
 
-        pid = File.read(pid_file).to_i
         begin
           Process.kill("KILL", pid)
         rescue Errno::ESRCH
@@ -406,11 +413,11 @@ module VagrantPlugins
       end
 
       def running?
-        pid_file = @tmp_dir.join(@vm_id).join("qemu.pid")
-        return false if !pid_file.file?
+        pid = read_pid
+        return false if pid.nil?
 
         begin
-          Process.kill(0, File.read(pid_file).to_i)
+          Process.kill(0, pid)
           true
         rescue Errno::ESRCH
           false

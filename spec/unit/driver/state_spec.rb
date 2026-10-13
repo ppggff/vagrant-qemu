@@ -45,6 +45,19 @@ describe VagrantPlugins::QEMU::Driver do
       File.write(pid_dir.join("qemu.pid"), "999999999")
       expect(subject.running?).to eq false
     end
+
+    it "returns false when QEMU removes the PID file while it is being read" do
+      pid_dir = @tmp_base.join("vagrant-qemu", vm_id)
+      FileUtils.mkdir_p(pid_dir)
+      pid_file = pid_dir.join("qemu.pid")
+      File.write(pid_file, Process.pid.to_s)
+      allow(File).to receive(:read).and_wrap_original do |original, path, *args|
+        File.delete(pid_file) if path.to_s == pid_file.to_s && File.exist?(pid_file)
+        original.call(path, *args)
+      end
+
+      expect(subject.running?).to eq false
+    end
   end
 
   describe "#created?" do
