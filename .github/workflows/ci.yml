@@ -88,6 +88,8 @@ jobs:
             vagrant --version
             ${{ matrix.qemu }} --version
             vagrant up --provider=qemu --no-provision
+            vagrant serial-config --json > "$RUNNER_TEMP/serial-config.json"
+            ruby -rjson -e 'r = JSON.parse(File.read(ARGV[0])).find { |m| m["machine"] == "default" }; e = r.fetch("endpoint"); abort "incorrect serial endpoint" unless e["type"] == "unix" && File.socket?(e.fetch("path"))' "$RUNNER_TEMP/serial-config.json"
             vagrant ssh -c 'uname -a'
             vagrant status --machine-readable
             vagrant halt
@@ -154,6 +156,8 @@ jobs:
           vagrant --version
           qemu-system-x86_64 --version
           vagrant up --provider=qemu --no-provision
+          vagrant serial-config --json > /tmp/serial-config.json
+          ruby -rjson -e 'r = JSON.parse(File.read(ARGV[0])).find { |m| m["machine"] == "default" }; e = r.fetch("endpoint"); abort "incorrect serial endpoint" unless e["type"] == "unix" && File.socket?(e.fetch("path"))' /tmp/serial-config.json
           vagrant ssh -c 'uname -a'
           vagrant status --machine-readable
           vagrant halt
@@ -221,6 +225,7 @@ jobs:
           else
             cat > "$VAGRANT_HOME/Vagrantfile" <<'RUBY'
           Vagrant.configure("2") do |config|
+            config.vm.boot_timeout = 600
             config.vm.provider "qemu" do |qe|
               qe.machine = "q35,accel=tcg"
               qe.cpu = "max"
@@ -234,7 +239,7 @@ jobs:
           ruby -v
           vagrant --version
           qemu-system-x86_64 --version
-      - run: bundle exec rspec spec/e2e
+      - run: bundle exec rspec --profile 30 spec/e2e
 
   e2e-macos-network:
     name: e2e network specs (macos-15)
@@ -261,6 +266,8 @@ jobs:
           mkdir -p "$VAGRANT_HOME"
           cat > "$VAGRANT_HOME/Vagrantfile" <<'RUBY'
           Vagrant.configure("2") do |config|
+            # Two TCG guests booting in parallel can exceed the default 300 s.
+            config.vm.boot_timeout = 600
             config.vm.provider "qemu" do |qe|
               qe.machine = "virt,highmem=on,accel=tcg"
               qe.cpu = "max"
@@ -273,7 +280,7 @@ jobs:
           vagrant --version
           qemu-system-aarch64 --version
       - name: vmnet specs
-        run: sudo -E env "PATH=$PATH" TEST_VMNET=1 bundle exec rspec spec/e2e/advanced_network_spec.rb
+        run: sudo -E env "PATH=$PATH" TEST_VMNET=1 bundle exec rspec --profile 30 spec/e2e/advanced_network_spec.rb
       # The vmnet run as root leaves root-owned files under VAGRANT_HOME.
       - name: Give VAGRANT_HOME back to the runner user
         if: ${{ !cancelled() }}
@@ -286,4 +293,12 @@ jobs:
           ls -l "$(brew --prefix)/var/run/socket_vmnet"
       - name: socket_vmnet specs
         if: ${{ !cancelled() }}
-        run: TEST_SOCKET_VMNET=1 bundle exec rspec spec/e2e/socket_vmnet_spec.rb
+        run: TEST_SOCKET_VMNET=1 bundle exec rspec --profile 30 spec/e2e/socket_vmnet_spec.rb
+      - name: socket_vmnet daemon log
+        if: failure()
+        run: sudo cat "$(brew --prefix)/var/log/socket_vmnet/stderr" || true
+      - name: Leftover QEMU processes and SSH listeners
+        if: failure()
+        run: |
+          ps -Ao pid,ppid,user,etime,args | grep '[q]emu-system' || true
+          sudo lsof -nP -iTCP:50022 -iTCP:2200 -sTCP:LISTEN || true

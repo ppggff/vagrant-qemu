@@ -29,7 +29,8 @@ describe "socket_vmnet advanced networking end-to-end", :requires_socket_vmnet d
       end
     RUBY
 
-    vagrant_up(@work_dir)
+    up = vagrant_up(@work_dir, timeout: 600)
+    expect(up[:exit_code]).to eq(0), up.inspect
     result = vagrant_ssh(@work_dir, command: "ip addr show")
     expect(result[:stdout]).to include("192.168.105.10")
   end
@@ -50,7 +51,8 @@ describe "socket_vmnet advanced networking end-to-end", :requires_socket_vmnet d
       end
     RUBY
 
-    vagrant_up(@work_dir)
+    up = vagrant_up(@work_dir, timeout: 600)
+    expect(up[:exit_code]).to eq(0), up.inspect
     `ping -c 1 -t 5 192.168.105.11 2>&1`
     expect($?.exitstatus).to eq 0
   end
@@ -87,7 +89,8 @@ describe "socket_vmnet advanced networking end-to-end", :requires_socket_vmnet d
       end
     RUBY
 
-    vagrant_up(@work_dir, timeout: 600)
+    up = vagrant_up(@work_dir, timeout: 900)
+    expect(up[:exit_code]).to eq(0), up.inspect
     result = vagrant_ssh(@work_dir, machine: "vm1", command: "ping -c 1 -W 5 192.168.105.21")
     expect(result[:exit_code]).to eq 0
     expect(result[:stdout]).to include(" 0% packet loss")
@@ -117,7 +120,8 @@ describe "socket_vmnet advanced networking end-to-end", :requires_socket_vmnet d
       end
     RUBY
 
-    vagrant_up(@work_dir)
+    up = vagrant_up(@work_dir, timeout: 600)
+    expect(up[:exit_code]).to eq(0), up.inspect
 
     # The wrapper route was genuinely taken (not stream): the running QEMU
     # carries the fd-3 socket netdev, not a stream netdev.

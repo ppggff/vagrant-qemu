@@ -28,7 +28,8 @@ describe "advanced networking end-to-end", :requires_vmnet do
       end
     RUBY
 
-    vagrant_up(@work_dir)
+    up = vagrant_up(@work_dir, timeout: 600)
+    expect(up[:exit_code]).to eq(0), up.inspect
     result = vagrant_ssh(@work_dir, command: "ip addr show")
     expect(result[:stdout]).to include("192.168.105.10")
   end
@@ -49,7 +50,8 @@ describe "advanced networking end-to-end", :requires_vmnet do
       end
     RUBY
 
-    vagrant_up(@work_dir)
+    up = vagrant_up(@work_dir, timeout: 600)
+    expect(up[:exit_code]).to eq(0), up.inspect
     result = `ping -c 1 -W 5 192.168.105.11 2>&1`
     expect($?.exitstatus).to eq 0
   end
@@ -73,7 +75,8 @@ describe "advanced networking end-to-end", :requires_vmnet do
       end
     RUBY
 
-    vagrant_up(@work_dir)
+    up = vagrant_up(@work_dir, timeout: 600)
+    expect(up[:exit_code]).to eq(0), up.inspect
     result = vagrant_ssh(@work_dir, command: "ip link show")
     expect(result[:exit_code]).to eq 0
     # `ip link` prints MACs in lowercase with colons; match case-insensitively to be safe.
@@ -112,7 +115,8 @@ describe "advanced networking end-to-end", :requires_vmnet do
       end
     RUBY
 
-    vagrant_up(@work_dir, timeout: 600)
+    up = vagrant_up(@work_dir, timeout: 900)
+    expect(up[:exit_code]).to eq(0), up.inspect
 
     # VM1 pings VM2 — via the helper (unbundled env) and asserting on the
     # ping output itself, not just an exit code that can pass vacuously.

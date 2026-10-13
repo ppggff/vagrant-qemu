@@ -8,9 +8,11 @@ module VagrantPlugins
         def initialize(app, env)
           @app = app
           @logger = Log4r::Logger.new("vagrant_qemu::action::start_instance")
+          @start_completed = false
         end
 
         def call(env)
+          @start_completed = false
           fw_ports = forwarded_ports(env)
           config = env[:machine].provider_config
 
@@ -48,7 +50,7 @@ module VagrantPlugins
 
           # Pick up SSH port that may have been corrected by HandleForwardedPortCollisions
           env[:machine].config.vm.networks.each do |type, opts|
-            if type == :forwarded_port && opts[:id] == "ssh"
+            if !config.net_device.nil? && type == :forwarded_port && opts[:id] == "ssh" && !opts[:disabled]
               options[:ssh_port] = opts[:host]
               break
             end
@@ -60,7 +62,34 @@ module VagrantPlugins
 
           env[:ui].output(I18n.t("vagrant_qemu.starting"))
           env[:machine].provider.driver.start(options)
-          @app.call(env)
+          @control_port = options[:control_port]
+          @start_completed = true
+          result = @app.call(env)
+          @start_completed = false
+          result
+        end
+
+        # Warden calls recover with the original failure. Stop only instances
+        # successfully launched by this action whose communicator never booted.
+        def recover(env)
+          return unless @start_completed
+          error = env["vagrant.error"]
+          return unless error.is_a?(Vagrant::Errors::VMBootTimeout) ||
+            error.is_a?(Vagrant::Errors::VMBootBadState)
+
+          @start_completed = false
+          @logger.warn("Boot failed; stopping the QEMU instance")
+          # The guest may not be able to handle ACPI yet. Ask QEMU to flush
+          # and quit directly, giving it several seconds before SIGKILL.
+          timeout = [[env[:machine].provider_config.graceful_timeout, 3].max, 10].min
+          driver = env[:machine].provider.driver
+          driver.stop(control_port: @control_port, graceful_timeout: timeout, quit_only: true)
+          message = driver.running? ? "boot_failed_stop_failed" : "boot_failed_stopped"
+          env[:ui].warn(I18n.t("vagrant_qemu.#{message}"))
+        rescue StandardError => cleanup_error
+          # Preserve the boot error that Warden is already propagating.
+          @logger.warn("Could not stop QEMU after boot failure: #{cleanup_error}")
+          env[:ui].warn(I18n.t("vagrant_qemu.boot_failed_stop_failed"))
         end
 
         def forwarded_ports(env)

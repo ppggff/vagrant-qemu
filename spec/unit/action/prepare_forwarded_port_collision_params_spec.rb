@@ -101,4 +101,40 @@ describe VagrantPlugins::QEMU::Action::PrepareForwardedPortCollisionParams do
       expect(port_check(windows: true)).to be_nil
     end
   end
+  describe "direct SSH with the default NIC disabled" do
+    it "keeps the platform port check for user forwards without auto-correction" do
+      allow(Vagrant::Util::Platform).to receive(:windows?).and_return(false)
+      server = TCPServer.new("127.0.0.1", 0)
+      port = server.addr[1]
+      server.close
+      ctx = mock_vagrant_env(provider_config_overrides: { net_device: nil },
+        networks: [[:forwarded_port, { guest: 80, host: port, auto_correct: false }]])
+
+      described_class.new(app, ctx[:env]).call(ctx[:env])
+
+      expect(ctx[:env].fetch(:port_collision_port_check).call("127.0.0.1", port)).to eq false
+      expect(ctx[:env][:port_collision_remap]).to eq({})
+      expect(ctx[:env][:port_collision_extra_in_use]).to eq({})
+    ensure
+      server&.close
+    end
+    it "does not add a synthetic SSH forwarding rule" do
+      ctx = mock_vagrant_env(provider_config_overrides: { net_device: nil, ssh_port: 22, ssh_auto_correct: true })
+      VagrantPlugins::QEMU::Action::PrepareForwardedPortCollisionParams.new(app, ctx[:env]).call(ctx[:env])
+      expect(ctx[:vm_config]).not_to have_received(:network)
+      expect(app).to have_received(:call).with(ctx[:env])
+    end
+
+    it "disables an inherited SSH forward without changing user forwards" do
+      ssh = { id: "ssh", host: 2222, guest: 22 }
+      web = { guest: 80, host: 8080 }
+      ctx = mock_vagrant_env(provider_config_overrides: { net_device: nil },
+        networks: [[:forwarded_port, ssh], [:forwarded_port, web]])
+      VagrantPlugins::QEMU::Action::PrepareForwardedPortCollisionParams.new(app, ctx[:env]).call(ctx[:env])
+      expect(ssh[:disabled]).to eq true
+      expect(web).to eq(guest: 80, host: 8080)
+    end
+
+  end
+
 end

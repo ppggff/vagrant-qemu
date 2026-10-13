@@ -70,6 +70,7 @@ module VagrantPlugins
           persisted_state = {
             :ssh_port => options[:ssh_port],
             :control_port => options[:control_port],
+            :debug_port => options[:debug_port],
           }
           options_file = id_tmp_dir.join("options.yml")
           File.write(options_file, persisted_state.to_yaml)
@@ -229,13 +230,15 @@ module VagrantPlugins
         # 1. ACPI power button (graceful). Only works if a live guest OS is
         #    there to act on it -- e.g. NOT after `systemctl halt`, which leaves
         #    QEMU running with a halted, unresponsive guest.
-        send_monitor(opts, "system_powerdown")
-        return unless still_running_after?(timeout)
+        unless options[:quit_only]
+          send_monitor(opts, "system_powerdown")
+          return unless still_running_after?(timeout)
+          @logger.warn("VM did not power down within #{timeout}s; sending 'quit' to QEMU")
+        end
 
         # 2. Powerdown didn't take. Ask QEMU itself to quit: it stops the VM,
         #    flushes and closes the qcow2 images, then exits cleanly. Does not
         #    depend on the guest, only on the monitor being reachable.
-        @logger.warn("VM did not power down within #{timeout}s; sending 'quit' to QEMU")
         send_monitor(opts, "quit")
         return unless still_running_after?(timeout)
 
@@ -245,6 +248,14 @@ module VagrantPlugins
       end
 
       private
+
+      # QEMU unlinks its pidfile on exit, so the file can vanish between any
+      # existence check and the read: read it once and treat ENOENT as gone.
+      def read_pid
+        File.read(@tmp_dir.join(@vm_id).join("qemu.pid")).to_i
+      rescue Errno::ENOENT
+        nil
+      end
 
       # Prefer the control_port the VM was actually started with (persisted
       # in options.yml) so halt still works after a Vagrantfile edit.
@@ -262,23 +273,38 @@ module VagrantPlugins
       # control_port if set, else the unix monitor socket). Best-effort: the
       # socket may already be gone (e.g. QEMU exited from a prior command), so
       # connection errors are swallowed.
+      # Drain replies until EOF with a deadline: immediately closing both
+      # halves can discard the command on QEMU's hangup event, while an
+      # unbounded read can bypass every shutdown timeout below.
       def send_monitor(options, command)
+        monitor_timeout = [[options[:graceful_timeout] || 60, 1].max, 5].min
         if !options[:control_port].nil?
-          Socket.tcp("localhost", options[:control_port], connect_timeout: 5) do |sock|
+          # start binds the TCP monitor with ipv4=on; avoid an IPv6 localhost
+          # attempt (and its refused-connection delay on Windows).
+          Socket.tcp("127.0.0.1", options[:control_port], connect_timeout: 5) do |sock|
             sock.print "#{command}\n"
             sock.close_write
-            sock.read rescue nil
+            drain_monitor(sock, monitor_timeout)
           end
         else
           unix_socket_path = @tmp_dir.join(@vm_id).join("qemu_socket").to_s
           Socket.unix(unix_socket_path) do |sock|
             sock.print "#{command}\n"
             sock.close_write
-            sock.read rescue nil
+            drain_monitor(sock, monitor_timeout)
           end
         end
       rescue => e
         @logger.debug("monitor command '#{command}' failed: #{e}") if @logger
+      end
+
+      def drain_monitor(sock, timeout)
+        deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout
+        loop do
+          remaining = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
+          break if remaining <= 0 || !IO.select([sock], nil, nil, remaining)
+          break if sock.read_nonblock(4096, exception: false).nil?
+        end
       end
 
       # Poll for up to `timeout` seconds. Return false as soon as the VM has
@@ -292,10 +318,9 @@ module VagrantPlugins
       end
 
       def force_kill
-        pid_file = @tmp_dir.join(@vm_id).join("qemu.pid")
-        return unless pid_file.file?
+        pid = read_pid
+        return if pid.nil? || pid <= 0
 
-        pid = File.read(pid_file).to_i
         begin
           Process.kill("KILL", pid)
         rescue Errno::ESRCH
@@ -304,6 +329,24 @@ module VagrantPlugins
       end
 
       public
+
+      # Prefer the endpoint used at launch, even if the Vagrantfile changed.
+      # Older instances did not persist debug_port, so use their configuration.
+      def serial_endpoint(default_port = nil)
+        return nil if @vm_id.nil?
+
+        runtime_dir = @tmp_dir.join(@vm_id)
+        options_file = runtime_dir.join("options.yml")
+        options = YAML.safe_load(File.read(options_file), permitted_classes: [Symbol]) rescue nil
+        port = default_port
+        port = options[:debug_port] if options.is_a?(Hash) && options.key?(:debug_port)
+
+        if port.nil?
+          { type: :unix, path: runtime_dir.join("qemu_socket_serial").to_s }
+        else
+          { type: :tcp, host: "127.0.0.1", port: port }
+        end
+      end
 
       def get_ssh_port(default_port)
         id_tmp_dir = @tmp_dir.join(@vm_id)
@@ -370,11 +413,11 @@ module VagrantPlugins
       end
 
       def running?
-        pid_file = @tmp_dir.join(@vm_id).join("qemu.pid")
-        return false if !pid_file.file?
+        pid = read_pid
+        return false if pid.nil?
 
         begin
-          Process.kill(0, File.read(pid_file).to_i)
+          Process.kill(0, pid)
           true
         rescue Errno::ESRCH
           false

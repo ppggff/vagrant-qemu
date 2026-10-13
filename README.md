@@ -39,7 +39,7 @@ Others:
 * Basic suport to forwarded ports, see [vagrant doc](https://www.vagrantup.com/docs/networking/forwarded_ports) for details
 * Support Cloud-init, see [vagrant doc](https://developer.hashicorp.com/vagrant/docs/cloud-init/usage) for details
 * Support Disks, see [vagrant doc](https://developer.hashicorp.com/vagrant/docs/disks/usage) for details
-  * `config.vm.disk :disk, primary: true, size: "100GB"` grows the existing boot disk. A smaller size leaves it unchanged; the provider never shrinks it. This resizes the virtual disk only: grow the guest's partition/filesystem separately, or use a box whose cloud-init handles that. The declaration is reapplied on start/reload, unlike `qe.disk_resize`, which applies during import.
+  * `config.vm.disk :disk, primary: true, size: "100GB"` grows the existing boot disk. The provider reports growth before resizing and warns when a smaller requested size is skipped; it never shrinks the disk. This resizes the virtual disk only: grow the guest's partition/filesystem separately, or use a box whose cloud-init handles that. The declaration is reapplied on start/reload, unlike `qe.disk_resize`, which applies during import. See the [upgrade note for older primary disk declarations](#upgrading-older-primary-disk-declarations).
 * Advanced networking (opt-in): dual-NIC with `private_network` support via QEMU native vmnet (macOS), TAP (Linux), or a `socket` netdev — multicast (Linux/Windows) or point-to-point listen/connect (no root, works on macOS)
 
 ## Usage
@@ -109,6 +109,33 @@ networking and synced folders in the consumer project.
 For a tested source-to-consumer round trip, see the
 [packaging recipe](examples/package-roundtrip/README.md).
 
+## Upgrading older primary disk declarations
+
+Before the fix in [PR #88](https://github.com/ppggff/vagrant-qemu/pull/88),
+`primary: true` created a separate blank disk, usually `vagrant_primary.qcow2`,
+instead of growing the boot disk. After upgrading, that extra disk is no longer
+automatically attached. Its file is retained with the VM.
+
+If you stored data on that extra disk, halt the VM and back up the existing file
+under `.vagrant/machines/<name>/qemu/<id>/vagrant_primary.qcow2`. Replace the old
+primary declaration with a non-primary declaration using the same name:
+
+```ruby
+config.vm.disk :disk, name: "vagrant_primary", primary: false, size: "100GB"
+```
+
+Use the size from your original declaration. The provider reuses the existing
+file without recreating it; if it is missing, a new blank disk would be created.
+If you gave the old disk a custom name, use that name instead. Run `vagrant up
+--provider=qemu` and mount its existing filesystem in the guest as before.
+
+If you also want to grow the actual boot disk, add a separate declaration with
+a distinct name, for example:
+
+```ruby
+config.vm.disk :disk, name: "boot", primary: true, size: "100GB"
+```
+
 ## Configuration
 
 ### Options
@@ -125,7 +152,7 @@ This provider exposes a few provider-specific configuration options:
   * `disk_resize` - The target disk size of the primary disk, requires resizing of filesystem inside of VM, default: `nil`.
 * debug/expert
   * `ssh_host` - The SSH IP used to access VM, default: `127.0.0.1`
-  * `ssh_auto_correct` - Auto correct port collisions for ssh port, default: `false`
+  * `ssh_auto_correct` - Auto correct port collisions for the provider's SSH forward, default: `false`. When `net_device = nil`, no synthetic SSH forward is added and the direct SSH port is preserved; configure `ssh_host` and `ssh_port` for your custom network.
   * `net_device` - The network device, default: auto-detected — `virtio-net-device` (arm64 `virt`) or `virtio-net-pci` (x86_64 `q35`)
   * `drive_interface` - The interface type for the main drive, default `virtio`
   * `image_path` - The path (or array of paths) to qcow2 image for box-less VM, default is nil value
@@ -471,6 +498,20 @@ Platform support:
 
 Serial port is exported to unix socket: `<user_home>/.vagrant.d/tmp/vagrant-qemu/<id>/qemu_socket_serial`, or `debug_port`.
 
+Run `vagrant serial-config` to list serial endpoints for all machines, or
+`vagrant serial-config NAME` for one machine. The command does not start machines;
+uncreated machines are listed as `NotCreated`. Created machines show `UnixSocket`
+or `Host`/`Port`. Stopped machines report their last-start endpoint when it was recorded, even if
+the configuration has since changed; that endpoint may not be listening.
+Machines using another provider are skipped.
+
+Use `vagrant serial-config --json` for an array of machine names and endpoint
+objects. Each record has `machine` (the Vagrant machine name) and `endpoint`.
+A Unix endpoint has `type: "unix"` and `path`; a TCP endpoint has `type: "tcp"`,
+`host` and `port`. An uncreated machine has a `null` endpoint. For newly started instances,
+the command uses the endpoint recorded at launch, even if `debug_port` changes
+in the Vagrantfile; older instances fall back to their current configuration.
+
 To debug and login to the GuestOS from serial port:
 
 * unix socket
@@ -585,6 +626,13 @@ Adding tests:
 * A feature that needs extra host setup (a daemon, a tool such as `virtiofsd`, root) gets its own tag, an environment switch in `spec/spec_helper.rb` next to `TEST_VMNET`, and a workflow step that installs the dependency and sets the switch.
 
 ## Known issue / Troubleshooting
+
+If boot times out or Vagrant reports an invalid boot state, the provider stops
+the QEMU instance it just launched and keeps its disks. It requests QEMU quit
+directly and allows 3–10 seconds to flush disk writes, based on `qe.graceful_timeout`,
+before falling back to forced termination. Increase `config.vm.boot_timeout` if
+the guest needs more time to become reachable. Interrupting the boot wait with
+Ctrl-C retains the existing behavior and can leave QEMU running.
 
 ### 1. failed to create shared folder
 

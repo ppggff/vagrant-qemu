@@ -1,4 +1,5 @@
 require_relative "helper"
+require "json"
 
 describe "smoke test: full VM lifecycle", :requires_qemu do
   around(:each) do |example|
@@ -30,6 +31,14 @@ describe "smoke test: full VM lifecycle", :requires_qemu do
 
     status = vagrant_status(@work_dir)
     expect(status[:stdout]).to include("running")
+
+    # Exercise the registered command in the installed plugin, and check
+    # that it identifies the actual serial socket created by this guest.
+    serial = run_vagrant_cmd("serial-config", "--json", cwd: @work_dir)
+    expect(serial[:exit_code]).to eq(0), serial.inspect
+    record = JSON.parse(serial[:stdout]).find { |entry| entry["machine"] == "default" }
+    expect(record.fetch("endpoint").fetch("type")).to eq "unix"
+    expect(File.socket?(record.fetch("endpoint").fetch("path"))).to be true
   end
 
   it "vagrant ssh can execute a command" do

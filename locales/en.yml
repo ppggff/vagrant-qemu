@@ -13,10 +13,22 @@ en:
       Starting the instance...
     stopping: |-
       Stopping the instance...
+    boot_failed_stopped: |-
+      The QEMU instance was stopped after boot failed. Its disks were kept.
+      Increase config.vm.boot_timeout and run vagrant up again to allow more boot time.
+    boot_failed_stop_failed: |-
+      QEMU could not be stopped after boot failed. Its disks were kept.
+      Run vagrant halt before trying to start the instance again.
     destroying: |-
       Destroying the instance...
     packaging_disk: |-
       Exporting box disk: %{name}
+    primary_disk_growing: |-
+      Growing primary disk '%{name}' from %{current_size} to %{requested_size} bytes.
+      Grow the guest partition and filesystem separately if needed.
+    primary_disk_shrink_not_supported: |-
+      Cannot shrink primary disk '%{name}' from %{current_size} to %{requested_size} bytes.
+      The disk has been kept at its existing size.
     warn_networks: |-
       Warning! The QEMU provider doesn't support any of the Vagrant
       high-level network configurations (`config.vm.network`). They
