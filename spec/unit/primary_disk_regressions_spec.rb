@@ -27,7 +27,7 @@ describe "open issue regressions" do
       path = @driver.disk_dir.join("linked-box.img").to_s
       allow(@driver).to receive(:execute).with("qemu-img", "resize", path, "107374182400") do
         expect(ui).to have_received(:detail).with(
-          "Growing primary disk 'root' from 68719476736 to 107374182400 bytes.\n" \
+          "Growing primary disk 'root' from 64 GiB to 100 GiB.\n" \
           "Grow the guest partition and filesystem separately if needed."
         )
       end
@@ -54,10 +54,21 @@ describe "open issue regressions" do
       expect(@driver).not_to have_received(:execute).with("qemu-img", "resize", any_args)
       expect(@driver).not_to have_received(:execute).with("qemu-img", "create", any_args)
       expect(ui).to have_received(:warn).with(
-        "Cannot shrink primary disk 'root' from 68719476736 to 1024 bytes.\n" \
+        "Cannot shrink primary disk 'root' from 64 GiB to 1 KiB.\n" \
         "The disk has been kept at its existing size."
       )
       expect(ui).not_to have_received(:detail)
+    end
+
+    it "displays fractional GiB while passing the exact byte count to qemu-img" do
+      allow(disk).to receive(:size).and_return(69_256_347_648)
+      VagrantPlugins::QEMU::Cap::Disk.configure_disks(machine, [disk])
+      expect(ui).to have_received(:detail).with(
+        "Growing primary disk 'root' from 64 GiB to 64.5 GiB.\n" \
+        "Grow the guest partition and filesystem separately if needed."
+      )
+      expect(@driver).to have_received(:execute).with("qemu-img", "resize",
+        @driver.disk_dir.join("linked-box.img").to_s, "69256347648")
     end
   end
 

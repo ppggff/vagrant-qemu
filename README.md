@@ -75,33 +75,6 @@ Same as [vagrant-libvirt version-1](https://github.com/vagrant-libvirt/vagrant-l
 * `metadata.json` file describing box image (provider, virtual_size, format)
 * `Vagrantfile` that does default settings
 
-## Upgrading older primary disk declarations
-
-Before the fix in [PR #88](https://github.com/ppggff/vagrant-qemu/pull/88),
-`primary: true` created a separate blank disk, usually `vagrant_primary.qcow2`,
-instead of growing the boot disk. After upgrading, that extra disk is no longer
-automatically attached. Its file is retained with the VM.
-
-If you stored data on that extra disk, halt the VM and back up the existing file
-under `.vagrant/machines/<name>/qemu/<id>/vagrant_primary.qcow2`. Replace the old
-primary declaration with a non-primary declaration using the same name:
-
-```ruby
-config.vm.disk :disk, name: "vagrant_primary", primary: false, size: "100GB"
-```
-
-Use the size from your original declaration. The provider reuses the existing
-file without recreating it; if it is missing, a new blank disk would be created.
-If you gave the old disk a custom name, use that name instead. Run `vagrant up
---provider=qemu` and mount its existing filesystem in the guest as before.
-
-If you also want to grow the actual boot disk, add a separate declaration with
-a distinct name, for example:
-
-```ruby
-config.vm.disk :disk, name: "boot", primary: true, size: "100GB"
-```
-
 ## Configuration
 
 ### Options
@@ -708,6 +681,33 @@ places `qemu64` below the x86-64-v2 baseline required by
 This workaround is for an x86_64 guest running under TCG emulation. A shell
 provisioner that installs OpenSSH cannot fix a failure before the first SSH
 connection, because provisioning starts after the communicator becomes ready.
+
+### Upgrading older primary disk declarations
+
+Before the fix in [PR #88](https://github.com/ppggff/vagrant-qemu/pull/88),
+`primary: true` created a separate blank disk, usually `vagrant_primary.qcow2`,
+instead of growing the boot disk. After upgrading, that extra disk is no longer
+automatically attached. Its file is retained with the VM.
+
+If you stored data on that extra disk, halt the VM and back up the existing file
+under `.vagrant/machines/<name>/qemu/<id>/vagrant_primary.qcow2`. Replace the old
+primary declaration with a non-primary declaration using the same name:
+
+```ruby
+config.vm.disk :disk, name: "vagrant_primary", primary: false, size: "100GB"
+```
+
+Use the size from your original declaration. The provider reuses the existing
+file without recreating it; if it is missing, a new blank disk would be created.
+If you gave the old disk a custom name, use that name instead. Run `vagrant up
+--provider=qemu` and mount its existing filesystem in the guest as before.
+
+If you also want to grow the actual boot disk, add a separate declaration with
+a distinct name, for example:
+
+```ruby
+config.vm.disk :disk, name: "boot", primary: true, size: "100GB"
+```
 
 ## TODO
 

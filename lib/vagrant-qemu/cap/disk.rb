@@ -119,14 +119,22 @@ module VagrantPlugins
           # Never shrink: a smaller target (or reload) must preserve guest data.
           if size > current_size
             machine.ui.detail(I18n.t("vagrant_qemu.primary_disk_growing",
-              name: disk.name, current_size: current_size, requested_size: size))
+              name: disk.name, current_size: readable_disk_size(current_size),
+              requested_size: readable_disk_size(size)))
             driver.execute("qemu-img", "resize", path.to_s, size.to_s)
           elsif size < current_size
             machine.ui.warn(I18n.t("vagrant_qemu.primary_disk_shrink_not_supported",
-              name: disk.name, current_size: current_size, requested_size: size))
+              name: disk.name, current_size: readable_disk_size(current_size),
+              requested_size: readable_disk_size(size)))
           end
           {UUID: disk.id, Name: disk.name, Path: path.to_s, primary: true}
         end
+
+        def self.readable_disk_size(bytes)
+          # Vagrant scales by 1024; use binary unit names to make that explicit.
+          Vagrant::Util::Numeric.bytes_to_string(bytes).sub(/([KMGTPE])B\z/, ' \1iB')
+        end
+        private_class_method :readable_disk_size
 
         # Sets up all disk configs of type `:dvd`
         #
