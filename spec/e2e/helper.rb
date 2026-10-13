@@ -67,8 +67,10 @@ module E2EHelper
     run_vagrant_cmd(*args, cwd: cwd, timeout: timeout)
   end
 
-  def vagrant_halt(cwd, timeout: 120)
-    run_vagrant_cmd("halt", cwd: cwd, timeout: timeout)
+  def vagrant_halt(cwd, timeout: 120, debug: false)
+    args = ["halt"]
+    args << "--debug" if debug
+    run_vagrant_cmd(*args, cwd: cwd, timeout: timeout)
   end
 
   def vagrant_reload(cwd, timeout: 600)

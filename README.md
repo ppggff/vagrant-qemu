@@ -552,6 +552,13 @@ Adding tests:
 
 ## Known issue / Troubleshooting
 
+If boot times out or Vagrant reports an invalid boot state, the provider stops
+the QEMU instance it just launched and keeps its disks. It requests QEMU quit
+directly and allows 3–10 seconds to flush disk writes, based on `qe.graceful_timeout`,
+before falling back to forced termination. Increase `config.vm.boot_timeout` if
+the guest needs more time to become reachable. Interrupting the boot wait with
+Ctrl-C retains the existing behavior and can leave QEMU running.
+
 ### 1. failed to create shared folder
 
 ```

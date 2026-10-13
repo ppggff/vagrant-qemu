@@ -21,6 +21,19 @@ describe VagrantPlugins::QEMU::Driver, "#stop" do
     subject.stop(control_port: nil)
   end
 
+  it "quits directly and allows time to flush after a failed boot" do
+    allow(subject).to receive(:running?).and_return(true, true, true, false)
+    allow(subject).to receive(:sleep)
+    allow(subject).to receive(:send_monitor)
+    expect(subject).not_to receive(:force_kill)
+
+    subject.stop(control_port: nil, graceful_timeout: 10, quit_only: true)
+
+    expect(subject).not_to have_received(:send_monitor).with(anything, "system_powerdown")
+    expect(subject).to have_received(:send_monitor).with(anything, "quit")
+    expect(subject).to have_received(:sleep).with(1).twice
+  end
+
   it "sends system_powerdown first and stops there when the guest powers off" do
     # running on the initial check, stopped on the first poll
     allow(subject).to receive(:running?).and_return(true, false)

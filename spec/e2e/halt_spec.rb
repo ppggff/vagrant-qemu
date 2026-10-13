@@ -39,8 +39,11 @@ describe "halt reaps QEMU when the guest is already halted (#79)", :requires_qem
 
     # Without the escalation, QEMU would linger and the VM would still report
     # running; with it, halt reaps the process within ~graceful_timeout.
-    result = vagrant_halt(@work_dir, timeout: 60)
-    expect(result[:exit_code]).to eq 0
+    result = vagrant_halt(@work_dir, timeout: 60, debug: true)
+    expect(result[:exit_code]).to eq(0), result.inspect
+    logs = result[:stdout] + result[:stderr]
+    expect(logs).to include("sending 'quit'")
+    expect(logs).not_to include("forcing kill")
 
     status = vagrant_status(@work_dir)
     expect(status[:stdout]).to include(",state,stopped")
