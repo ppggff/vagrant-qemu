@@ -267,3 +267,8 @@ jobs:
       - name: socket_vmnet daemon log
         if: failure()
         run: sudo cat "$(brew --prefix)/var/log/socket_vmnet/stderr" || true
+      - name: Leftover QEMU processes and SSH listeners
+        if: failure()
+        run: |
+          ps -Ao pid,ppid,user,etime,args | grep '[q]emu-system' || true
+          sudo lsof -nP -iTCP:50022 -iTCP:2200 -sTCP:LISTEN || true
