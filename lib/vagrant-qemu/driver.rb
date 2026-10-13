@@ -70,6 +70,7 @@ module VagrantPlugins
           persisted_state = {
             :ssh_port => options[:ssh_port],
             :control_port => options[:control_port],
+            :debug_port => options[:debug_port],
           }
           options_file = id_tmp_dir.join("options.yml")
           File.write(options_file, persisted_state.to_yaml)
@@ -321,6 +322,24 @@ module VagrantPlugins
       end
 
       public
+
+      # Prefer the endpoint used at launch, even if the Vagrantfile changed.
+      # Older instances did not persist debug_port, so use their configuration.
+      def serial_endpoint(default_port = nil)
+        return nil if @vm_id.nil?
+
+        runtime_dir = @tmp_dir.join(@vm_id)
+        options_file = runtime_dir.join("options.yml")
+        options = YAML.safe_load(File.read(options_file), permitted_classes: [Symbol]) rescue nil
+        port = default_port
+        port = options[:debug_port] if options.is_a?(Hash) && options.key?(:debug_port)
+
+        if port.nil?
+          { type: :unix, path: runtime_dir.join("qemu_socket_serial").to_s }
+        else
+          { type: :tcp, host: "127.0.0.1", port: port }
+        end
+      end
 
       def get_ssh_port(default_port)
         id_tmp_dir = @tmp_dir.join(@vm_id)

@@ -61,6 +61,22 @@ describe VagrantPlugins::QEMU::Driver, "start command line (single NIC)" do
     expect(@captured_cmd).to include("-m", "4G")
   end
 
+  it "persists the TCP serial port used at launch" do
+    subject.start(base_options.merge(debug_port: 33334))
+    endpoint = subject.serial_endpoint(44444)
+    expect(endpoint).to eq(type: :tcp, host: "127.0.0.1", port: 33334)
+    serial_arg = @captured_cmd.find { |arg| arg.start_with?("socket,id=ser0,") }
+    expect(serial_arg).to include("port=#{endpoint.fetch(:port)},")
+  end
+
+  it "persists a Unix serial endpoint despite later TCP configuration" do
+    subject.start(base_options)
+    endpoint = subject.serial_endpoint(33334)
+    expect(endpoint).to eq(type: :unix, path: subject.tmp_dir.join(vm_id, "qemu_socket_serial").to_s)
+    serial_arg = @captured_cmd.find { |arg| arg.start_with?("socket,id=ser0,") }
+    expect(serial_arg).to include("path=#{endpoint.fetch(:path)},")
+  end
+
   it "includes -device and -netdev user for single NIC" do
     subject.start(base_options)
     expect(@captured_cmd.join(" ")).to include("-device virtio-net-device,netdev=net0")

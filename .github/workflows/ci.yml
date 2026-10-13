@@ -88,6 +88,8 @@ jobs:
             vagrant --version
             ${{ matrix.qemu }} --version
             vagrant up --provider=qemu --no-provision
+            vagrant serial-config --json > "$RUNNER_TEMP/serial-config.json"
+            ruby -rjson -e 'r = JSON.parse(File.read(ARGV[0])).find { |m| m["machine"] == "default" }; e = r.fetch("endpoint"); abort "incorrect serial endpoint" unless e["type"] == "unix" && File.socket?(e.fetch("path"))' "$RUNNER_TEMP/serial-config.json"
             vagrant ssh -c 'uname -a'
             vagrant status --machine-readable
             vagrant halt
@@ -138,6 +140,8 @@ jobs:
           vagrant --version
           qemu-system-x86_64 --version
           vagrant up --provider=qemu --no-provision
+          vagrant serial-config --json > /tmp/serial-config.json
+          ruby -rjson -e 'r = JSON.parse(File.read(ARGV[0])).find { |m| m["machine"] == "default" }; e = r.fetch("endpoint"); abort "incorrect serial endpoint" unless e["type"] == "unix" && File.socket?(e.fetch("path"))' /tmp/serial-config.json
           vagrant ssh -c 'uname -a'
           vagrant status --machine-readable
           vagrant halt
