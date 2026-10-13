@@ -75,25 +75,39 @@ Same as [vagrant-libvirt version-1](https://github.com/vagrant-libvirt/vagrant-l
 * `metadata.json` file describing box image (provider, virtual_size, format)
 * `Vagrantfile` that does default settings
 
-## Package a QEMU machine into a reusable box
+### Package a QEMU machine into a reusable box
 
-Use the [complete packaging recipe](examples/package-roundtrip/README.md), with
-source and consumer Vagrantfiles and the same executable script used by CI:
+From a source project's directory, start the QEMU VM and package it:
 
 ```sh
-examples/package-roundtrip/run.sh /tmp/qemu-package-proof
+vagrant up --provider=qemu
+vagrant package --output ../portable.box
 ```
 
-It writes a random marker inside a source guest, exports a standalone qcow2 box,
-destroys the source VM, imports the box into a fresh project, and requires the new
-guest to return the exact marker. The recipe includes installation prerequisites,
-ARM64 firmware setup, cleanup and commands for reusing the exported archive.
+To package a named machine, pass its name before `--output`, for example
+`vagrant package web --output ../portable.box`.
 
-Packaging stops the source machine and includes its box disks and architecture.
-Extra disks, DVDs and cloud-init seed ISOs are excluded. Configure networking and
-synced folders in the consuming project. The archive uses the `libvirt` box format;
-start the VM with `--provider=qemu`. For a named machine, use
-`vagrant package NAME --output portable.box`.
+In a fresh consumer project, add the archive and select that box in its
+`Vagrantfile`:
+
+```sh
+vagrant box add portable-qemu ../portable.box
+```
+
+```ruby
+Vagrant.configure("2") do |config|
+  config.vm.box = "portable-qemu"
+end
+```
+
+Then boot it with `vagrant up --provider=qemu`. The archive uses the `libvirt`
+box format, which this plugin can import; let `vagrant box add` read its provider
+metadata. Packaging stops the source VM and includes its box disks and
+architecture. Extra disks, DVDs and cloud-init seed ISOs are excluded. Set up
+networking and synced folders in the consumer project.
+
+For a tested source-to-consumer round trip, see the
+[packaging recipe](examples/package-roundtrip/README.md).
 
 ## Configuration
 

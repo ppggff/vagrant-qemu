@@ -93,6 +93,7 @@ jobs:
             vagrant halt
           } 2>&1 | tee "$RUNNER_TEMP/guest-smoke.log"
       - name: Verify the documented packaging recipe
+        if: runner.os == 'macOS'
         run: |
           set -euo pipefail
           # Hosted macOS runners lack HVF; match the smoke guest's TCG setup.
