@@ -115,7 +115,7 @@ describe "advanced networking end-to-end", :requires_vmnet do
       end
     RUBY
 
-    up = vagrant_up(@work_dir, timeout: 600)
+    up = vagrant_up(@work_dir, timeout: 900)
     expect(up[:exit_code]).to eq(0), up.inspect
 
     # VM1 pings VM2 — via the helper (unbundled env) and asserting on the

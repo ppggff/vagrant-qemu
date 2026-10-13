@@ -89,7 +89,7 @@ describe "socket_vmnet advanced networking end-to-end", :requires_socket_vmnet d
       end
     RUBY
 
-    up = vagrant_up(@work_dir, timeout: 600)
+    up = vagrant_up(@work_dir, timeout: 900)
     expect(up[:exit_code]).to eq(0), up.inspect
     result = vagrant_ssh(@work_dir, machine: "vm1", command: "ping -c 1 -W 5 192.168.105.21")
     expect(result[:exit_code]).to eq 0

@@ -195,6 +195,7 @@ jobs:
           else
             cat > "$VAGRANT_HOME/Vagrantfile" <<'RUBY'
           Vagrant.configure("2") do |config|
+            config.vm.boot_timeout = 600
             config.vm.provider "qemu" do |qe|
               qe.machine = "q35,accel=tcg"
               qe.cpu = "max"
@@ -235,6 +236,8 @@ jobs:
           mkdir -p "$VAGRANT_HOME"
           cat > "$VAGRANT_HOME/Vagrantfile" <<'RUBY'
           Vagrant.configure("2") do |config|
+            # Two TCG guests booting in parallel can exceed the default 300 s.
+            config.vm.boot_timeout = 600
             config.vm.provider "qemu" do |qe|
               qe.machine = "virt,highmem=on,accel=tcg"
               qe.cpu = "max"
