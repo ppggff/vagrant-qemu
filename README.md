@@ -35,7 +35,7 @@ Others:
 * SSH into VM
 * Provision the instances with any built-in Vagrant provisioner
 * Synced folder support via SMB
-* Basic operation: up, ssh, halt, destroy
+* Basic operation: up, ssh, halt, destroy, package
 * Basic suport to forwarded ports, see [vagrant doc](https://www.vagrantup.com/docs/networking/forwarded_ports) for details
 * Support Cloud-init, see [vagrant doc](https://developer.hashicorp.com/vagrant/docs/cloud-init/usage) for details
 * Support Disks, see [vagrant doc](https://developer.hashicorp.com/vagrant/docs/disks/usage) for details
@@ -746,6 +746,5 @@ connection, because provisioning starts after the communicator becomes ready.
 ## TODO
 
 * Support NFS shared folder
-* Support package VM to box
 * More configures
 * GUI mode
