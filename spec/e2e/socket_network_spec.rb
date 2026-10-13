@@ -136,7 +136,8 @@ describe "advanced networking over socket multicast (no root)", :requires_qemu d
       end
     RUBY
 
-    vagrant_up(@work_dir, timeout: 600)
+    up = vagrant_up(@work_dir, timeout: 600)
+    expect(up[:exit_code]).to eq(0), up.inspect
 
     # From inside vm1, ping vm2 over the socket-backed private NIC. Assert on
     # the ping output itself ("0% packet loss"), not just an exit code that can
