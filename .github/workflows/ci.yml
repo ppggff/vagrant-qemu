@@ -208,7 +208,7 @@ jobs:
           ruby -v
           vagrant --version
           qemu-system-x86_64 --version
-      - run: bundle exec rspec spec/e2e
+      - run: bundle exec rspec --profile 30 spec/e2e
 
   e2e-macos-network:
     name: e2e network specs (macos-15)
@@ -247,7 +247,7 @@ jobs:
           vagrant --version
           qemu-system-aarch64 --version
       - name: vmnet specs
-        run: sudo -E env "PATH=$PATH" TEST_VMNET=1 bundle exec rspec spec/e2e/advanced_network_spec.rb
+        run: sudo -E env "PATH=$PATH" TEST_VMNET=1 bundle exec rspec --profile 30 spec/e2e/advanced_network_spec.rb
       # The vmnet run as root leaves root-owned files under VAGRANT_HOME.
       - name: Give VAGRANT_HOME back to the runner user
         if: ${{ !cancelled() }}
@@ -260,4 +260,7 @@ jobs:
           ls -l "$(brew --prefix)/var/run/socket_vmnet"
       - name: socket_vmnet specs
         if: ${{ !cancelled() }}
-        run: TEST_SOCKET_VMNET=1 bundle exec rspec spec/e2e/socket_vmnet_spec.rb
+        run: TEST_SOCKET_VMNET=1 bundle exec rspec --profile 30 spec/e2e/socket_vmnet_spec.rb
+      - name: socket_vmnet daemon log
+        if: failure()
+        run: sudo cat "$(brew --prefix)/var/log/socket_vmnet/stderr" || true
