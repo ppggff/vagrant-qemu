@@ -58,6 +58,7 @@ jobs:
             qemu: qemu-system-aarch64
     env:
       VAGRANT_HOME: /tmp/vagrant-qemu-ci-home
+      VAGRANT_DEFAULT_PROVIDER: qemu
       CI_TEST_ARCH: ${{ matrix.arch }}
     steps:
       - uses: actions/checkout@v4
