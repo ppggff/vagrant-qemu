@@ -91,7 +91,7 @@ This provider exposes a few provider-specific configuration options:
   * `disk_resize` - The target disk size of the primary disk, requires resizing of filesystem inside of VM, default: `nil`.
 * debug/expert
   * `ssh_host` - The SSH IP used to access VM, default: `127.0.0.1`
-  * `ssh_auto_correct` - Auto correct port collisions for ssh port, default: `false`
+  * `ssh_auto_correct` - Auto correct port collisions for the provider's SSH forward, default: `false`. When `net_device = nil`, no synthetic SSH forward is added and the direct SSH port is preserved; configure `ssh_host` and `ssh_port` for your custom network.
   * `net_device` - The network device, default: auto-detected — `virtio-net-device` (arm64 `virt`) or `virtio-net-pci` (x86_64 `q35`)
   * `drive_interface` - The interface type for the main drive, default `virtio`
   * `image_path` - The path (or array of paths) to qcow2 image for box-less VM, default is nil value
