@@ -10,6 +10,22 @@ describe VagrantPlugins::QEMU::Action::StartInstance do
     expect { described_class.new(app, ctx[:env]).call(ctx[:env]) }.to raise_error(error)
   end
 
+  it "marks VirtioFS daemon logs as shown after printing them for a failed launch" do
+    with_temp_dir do |dir|
+      ctx = mock_vagrant_env(provider_config_overrides: {
+        memory: "1G", virtiofs_qemu_args: ["-device", "vhost-user-fs-pci"]
+      })
+      allow(ctx[:machine]).to receive(:data_dir).and_return(dir)
+      FileUtils.mkdir_p(dir.join("virtiofs"))
+      File.write(dir.join("virtiofs/virtiofs0.log"), "diagnostic")
+      allow(ctx[:ui]).to receive(:error)
+      allow(ctx[:driver]).to receive(:start).and_raise("launch failed")
+      expect { described_class.new(app, ctx[:env]).call(ctx[:env]) }.to raise_error("launch failed")
+      expect(ctx[:ui]).to have_received(:error).with(/virtiofsd log .*\ndiagnostic/m)
+      expect(ctx[:env][:virtiofs_logs_shown]).to eq true
+    end
+  end
+
   it "uses the aligned VirtioFS backend size for guest RAM" do
     ctx = mock_vagrant_env(provider_config_overrides: {
       memory: "1.3G", virtiofs_qemu_args: ["-object", "memory-backend-file,id=mem,size=1332M"]

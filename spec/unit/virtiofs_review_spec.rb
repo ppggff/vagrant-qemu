@@ -136,6 +136,28 @@ describe "VirtioFS review regressions" do
     end
   end
 
+  [false, true].each do |shown|
+    it "#{shown ? 'does not repeat' : 'prints'} daemon logs on recovery when StartInstance #{shown ? 'already printed' : 'did not print'} them" do
+      app = double("app")
+      allow(app).to receive(:call) do
+        FileUtils.mkdir_p(@dir.join("virtiofs"))
+        File.write(@dir.join("virtiofs/virtiofs0.log"), 'diagnostic')
+        config.virtiofs_qemu_args = ["-device", "vhost-user-fs-pci"]
+        raise "launch failed"
+      end
+      env = { machine: machine }
+      action = VagrantPlugins::QEMU::Action::ResetVirtioFSArgs.new(app, env)
+      expect { action.call(env) }.to raise_error("launch failed")
+      env[:virtiofs_logs_shown] = true if shown
+      action.recover(env)
+      if shown
+        expect(ui).not_to have_received(:error).with(/virtiofsd log/)
+      else
+        expect(ui).to have_received(:error).with(/virtiofsd log .*\ndiagnostic/m)
+      end
+    end
+  end
+
   it "recognizes and terminates a real owned daemon process", :unix_only do
     skip "VirtioFS daemons run in Linux, not native Windows" if Vagrant::Util::Platform.windows?
     allow(Process).to receive(:kill).and_call_original

@@ -75,6 +75,8 @@ module VagrantPlugins
                 # Keep the QEMU failure as the error if the log disappears.
               end
             end
+            # ResetVirtioFSArgs#recover would print the same logs again.
+            env[:virtiofs_logs_shown] = true
             Dir.glob(log_dir.join("*.pid").to_s).each do |path|
               begin
                 contents = File.read(path).strip

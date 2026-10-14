@@ -24,8 +24,10 @@ module VagrantPlugins
           # Warden unwinds StartInstance first. Once its recovery stops QEMU,
           # the daemons can stop too. A running guest keeps its shares.
           return if machine.provider.driver.running?
-          Dir.glob(machine.data_dir.join("virtiofs/*.log")).each do |path|
-            machine.ui.error("virtiofsd log (#{path}):\n#{File.read(path)}")
+          unless env[:virtiofs_logs_shown]
+            Dir.glob(machine.data_dir.join("virtiofs/*.log")).each do |path|
+              machine.ui.error("virtiofsd log (#{path}):\n#{File.read(path)}")
+            end
           end
           SyncedFolderVirtioFS.new.cleanup(machine, preserve_logs: true)
           machine.provider_config.virtiofs_qemu_args = []
