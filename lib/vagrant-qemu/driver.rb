@@ -420,7 +420,7 @@ module VagrantPlugins
 
       def running?
         pid = read_pid
-        return false if pid.nil?
+        return false if pid.nil? || pid <= 0
 
         begin
           Process.kill(0, pid)

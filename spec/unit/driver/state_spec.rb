@@ -46,6 +46,13 @@ describe VagrantPlugins::QEMU::Driver do
       expect(subject.running?).to eq false
     end
 
+    it "returns false when the PID file is still empty" do
+      pid_dir = @tmp_base.join("vagrant-qemu", vm_id)
+      FileUtils.mkdir_p(pid_dir)
+      File.write(pid_dir.join("qemu.pid"), "")
+      expect(subject.running?).to eq false
+    end
+
     it "returns false when QEMU removes the PID file while it is being read" do
       pid_dir = @tmp_base.join("vagrant-qemu", vm_id)
       FileUtils.mkdir_p(pid_dir)
