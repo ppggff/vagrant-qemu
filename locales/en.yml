@@ -26,6 +26,11 @@ en:
     primary_disk_growing: |-
       Growing primary disk '%{name}' from %{current_size} to %{requested_size}.
       Grow the guest partition and filesystem separately if needed.
+    primary_disk_legacy_detached: |-
+      Primary disk '%{name}' now grows the boot disk. The separate disk an
+      earlier version or declaration created at %{path} is no longer attached;
+      the file is kept. If it holds data, see "Upgrading older primary disk
+      declarations" in the README to attach it again.
     primary_disk_shrink_not_supported: |-
       Cannot shrink primary disk '%{name}' from %{current_size} to %{requested_size}.
       The disk has been kept at its existing size.

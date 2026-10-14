@@ -114,6 +114,14 @@ module VagrantPlugins
           size = disk.size.is_a?(Integer) ? disk.size : Vagrant::Util::Numeric.string_to_bytes(disk.size)
           raise Errors::ConfigError, err: "Primary disk size must be positive" unless size && size > 0
 
+          # Earlier versions attached a primary declaration as a separate blank
+          # disk under this name; it is no longer attached but may hold data.
+          legacy = driver.disk_dir.join("#{disk.name}.#{disk.disk_ext}")
+          if legacy.file?
+            machine.ui.warn(I18n.t("vagrant_qemu.primary_disk_legacy_detached",
+              name: disk.name, path: legacy.to_s))
+          end
+
           info = JSON.parse(driver.execute("qemu-img", "info", "--output=json", path.to_s))
           current_size = info.fetch("virtual-size")
           # Never shrink: a smaller target (or reload) must preserve guest data.

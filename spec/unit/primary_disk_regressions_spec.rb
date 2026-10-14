@@ -39,6 +39,22 @@ describe "open issue regressions" do
       expect(@driver).not_to have_received(:execute).with("qemu-img", "create", any_args)
     end
 
+    it "warns that a blank disk left by an older primary declaration is no longer attached" do
+      allow(@driver).to receive(:execute).and_return('{"virtual-size":107374182400}')
+      legacy = @driver.disk_dir.join("root.qcow2")
+      FileUtils.touch(legacy)
+      VagrantPlugins::QEMU::Cap::Disk.configure_disks(machine, [disk])
+      expect(ui).to have_received(:warn).with(/#{Regexp.escape(legacy.to_s)}.*no longer attached/m)
+      expect(@driver.attached_drives[:disk]).to be_empty
+      expect(legacy).to be_file
+    end
+
+    it "does not warn about an older primary disk when none exists" do
+      allow(@driver).to receive(:execute).and_return('{"virtual-size":107374182400}')
+      VagrantPlugins::QEMU::Cap::Disk.configure_disks(machine, [disk])
+      expect(ui).not_to have_received(:warn)
+    end
+
     it "does not resize a primary disk again when it is already large enough" do
       allow(@driver).to receive(:execute).and_return('{"virtual-size":107374182400}')
       VagrantPlugins::QEMU::Cap::Disk.configure_disks(machine, [disk])
