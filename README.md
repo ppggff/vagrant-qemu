@@ -36,7 +36,7 @@ Others:
 * Provision the instances with any built-in Vagrant provisioner
 * Synced folder support via SMB
 * Synced folder support via VirtioFS for Linux guests
-* Basic operation: up, ssh, halt, destroy
+* Basic operation: up, ssh, halt, destroy, package
 * Basic suport to forwarded ports, see [vagrant doc](https://www.vagrantup.com/docs/networking/forwarded_ports) for details
 * Support Cloud-init, see [vagrant doc](https://developer.hashicorp.com/vagrant/docs/cloud-init/usage) for details
 * Support Disks, see [vagrant doc](https://developer.hashicorp.com/vagrant/docs/disks/usage) for details
@@ -115,6 +115,40 @@ Same as [vagrant-libvirt version-1](https://github.com/vagrant-libvirt/vagrant-l
 * qcow2 image file named `box.img`
 * `metadata.json` file describing box image (provider, virtual_size, format)
 * `Vagrantfile` that does default settings
+
+### Package a QEMU machine into a reusable box
+
+From a source project's directory, start the QEMU VM and package it:
+
+```sh
+vagrant up --provider=qemu
+vagrant package --output ../portable.box
+```
+
+To package a named machine, pass its name before `--output`, for example
+`vagrant package web --output ../portable.box`.
+
+In a fresh consumer project, add the archive and select that box in its
+`Vagrantfile`:
+
+```sh
+vagrant box add portable-qemu ../portable.box
+```
+
+```ruby
+Vagrant.configure("2") do |config|
+  config.vm.box = "portable-qemu"
+end
+```
+
+Then boot it with `vagrant up --provider=qemu`. The archive uses the `libvirt`
+box format, which this plugin can import; let `vagrant box add` read its provider
+metadata. Packaging stops the source VM and includes its box disks and
+architecture. Extra disks, DVDs and cloud-init seed ISOs are excluded. Set up
+networking and synced folders in the consumer project.
+
+For a tested source-to-consumer round trip, see the
+[packaging recipe](examples/package-roundtrip/README.md).
 
 ## Configuration
 
@@ -758,6 +792,5 @@ config.vm.disk :disk, name: "boot", primary: true, size: "100GB"
 ## TODO
 
 * Support NFS shared folder
-* Support package VM to box
 * More configures
 * GUI mode

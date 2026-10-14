@@ -19,6 +19,8 @@ vendor/**/*
 Vagrantfile
 !example_box/Vagrantfile
 !examples/ci-smoke/Vagrantfile
+!examples/package-roundtrip/source/Vagrantfile
+!examples/package-roundtrip/consumer/Vagrantfile
 
 # RVM files for gemset/ruby setting
 .ruby-*

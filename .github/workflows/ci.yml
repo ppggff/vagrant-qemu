@@ -95,6 +95,20 @@ jobs:
             vagrant status --machine-readable
             vagrant halt
           } 2>&1 | tee "$RUNNER_TEMP/guest-smoke.log"
+      - name: Verify the documented packaging recipe
+        if: runner.os == 'macOS'
+        run: |
+          set -euo pipefail
+          # Hosted macOS runners lack HVF; match the smoke guest's TCG setup.
+          cat > "$VAGRANT_HOME/Vagrantfile" <<'RUBY'
+          Vagrant.configure("2") do |config|
+            config.vm.provider "qemu" do |qe|
+              qe.machine = ENV.fetch("CI_TEST_ARCH") == "arm64" ? "virt,highmem=on,accel=tcg" : "q35,accel=tcg"
+              qe.cpu = "max"
+            end
+          end
+          RUBY
+          examples/package-roundtrip/run.sh "$RUNNER_TEMP/package-recipe" 2>&1 | tee "$RUNNER_TEMP/package-recipe.log"
       - name: Destroy sample guest
         if: always()
         working-directory: examples/ci-smoke
@@ -103,7 +117,9 @@ jobs:
         if: always()
         with:
           name: guest-smoke-${{ matrix.os }}
-          path: ${{ runner.temp }}/guest-smoke.log
+          path: |
+            ${{ runner.temp }}/guest-smoke.log
+            ${{ runner.temp }}/package-recipe.log
 
   wsl2-guest-smoke:
     name: QEMU guest smoke and VirtioFS (Windows WSL2)
@@ -165,6 +181,20 @@ jobs:
           fi
           /usr/libexec/virtiofsd --version
           TEST_VIRTIOFS=1 TEST_BOX=cloud-image/debian-12 bundle exec rspec spec/e2e/virtiofs_spec.rb --format documentation
+      - name: Verify the documented packaging recipe inside WSL2
+        shell: wsl-bash {0}
+        run: |
+          export VAGRANT_HOME=/tmp/vagrant-qemu-ci-home CI_TEST_ARCH=amd64 VAGRANT_DEFAULT_PROVIDER=qemu
+          cd /tmp/vagrant-qemu-ci-source
+          cat > "$VAGRANT_HOME/Vagrantfile" <<'RUBY'
+          Vagrant.configure("2") do |config|
+            config.vm.provider "qemu" do |qe|
+              qe.machine = "q35,accel=tcg"
+              qe.cpu = "max"
+            end
+          end
+          RUBY
+          examples/package-roundtrip/run.sh /tmp/package-recipe
       - name: Destroy WSL2 sample guest
         if: always()
         shell: wsl-bash {0}
