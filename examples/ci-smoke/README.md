@@ -15,5 +15,5 @@ vagrant halt
 vagrant destroy -f
 ```
 
-Use `CI_TEST_ARCH=amd64` on an x86_64 host. The CI workflow runs this example
-without VirtioFS or other proposed provider changes.
+Use `CI_TEST_ARCH=amd64` on an x86_64 host. The CI guest-smoke jobs run this
+example.

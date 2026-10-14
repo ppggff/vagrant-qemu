@@ -84,6 +84,13 @@ brew unlink qemu # if the stock formula is installed
 brew install antimatter-studios/tap/qemu antimatter-studios/tap/virtiofsd
 ```
 
+CI also points the provider at the tap build's firmware directory. If
+`vagrant up` cannot find the aarch64 firmware, do the same:
+
+```sh
+export QEMU_DIR="$(brew --prefix antimatter-studios/tap/qemu)/share/qemu"
+```
+
 CI pins the tap to `f51cb0fcd636247ea977898e7d01a893ee05cf86` and tests this
 combination with TCG; it does not establish macOS HVF support. Linux and Windows WSL2 use the Ubuntu
 `virtiofsd` package. In WSL2 both QEMU and the daemon run inside Linux, so
@@ -163,7 +170,7 @@ This provider exposes a few provider-specific configuration options:
   * `cpu` - The cpu model of VM, default: `host` for native virtualization, `max` when emulating a non-host arch
   * `smp` - The smp setting (Simulate an SMP system with n CPUs) of VM, default: `2`
   * `memory` - The memory setting of VM, default: `4G`
-  * `disk_resize` - The target disk size of the primary disk, requires resizing of filesystem inside of VM, default: `nil`.
+  * `disk_resize` - The target disk size of the primary disk, requires resizing of filesystem inside of VM, default: `nil`. Applied only when the VM is imported. With a `primary: true` disk declaration as well, the disk ends up at the larger of the two sizes, and if `disk_resize` is the larger one every start warns that the smaller declaration cannot shrink the disk; set only one of them.
 * debug/expert
   * `ssh_host` - The SSH IP used to access VM, default: `127.0.0.1`
   * `ssh_auto_correct` - Auto correct port collisions for the provider's SSH forward, default: `false`. When `net_device = nil`, no synthetic SSH forward is added and the direct SSH port is preserved; configure `ssh_host` and `ssh_port` for your custom network.
@@ -179,7 +186,7 @@ This provider exposes a few provider-specific configuration options:
   * `debug_port` - The port number used to export serial port of the vm for debug, default is nil value. (nil means use unix socket, see "Debug" below for details)
   * `no_daemonize` - Disable the "daemonize" mode of QEMU, default is false. (see "Windows host" below as example)
   * `firmware_format` - The format of aarch64 firmware images (`edk2-aarch64-code.fd` and `edk2-arm-vars.fd`) loaded from `qemu_dir`, default: `raw`
-  * `other_default` - The other default arguments used by this plugin, default: `%W(-parallel null -monitor none -display none -vga none)`
+  * `other_default` - The other default arguments used by this plugin, default: `%W(-parallel none -monitor none -display none -vga none)`
   * `extra_image_opts` - Options passed via `-o` to `qemu-img` when the base qcow2 images are created, default: `[]`
   * `graceful_timeout` - Seconds to wait at each `vagrant halt` stage before escalating, default: `60`. Halt sends ACPI `system_powerdown`, waits up to this long, then sends QEMU's `quit` monitor command (a clean shutdown that flushes and closes the disk images), waits again, and finally SIGKILLs QEMU as a last resort — so halt still completes even when the guest was already halted from inside (e.g. `sudo systemctl halt`), where `system_powerdown` is a no-op
 * advanced networking (requires `advanced_network = true`)
@@ -219,7 +226,7 @@ to `nil` value to skip related qemu arguments.
 * `net_device`: skip all network related arguments:
   * `-device xxx,netdev=net0`
   * `-netdev user,id=net0,xxx`
-  * NOTES: there will be no network, ssh won't work
+  * NOTES: the provider adds no network; SSH works only if you set up your own network and point `ssh_host` and `ssh_port` at it
 * `drive_interface`: skip drive for the main image, `-drive if=xxx,xxx`
 * `firmware_format`: skip firmware setup for aarch64, `-drive if=pflash,xxx`
 
@@ -650,8 +657,16 @@ If boot times out or Vagrant reports an invalid boot state, the provider stops
 the QEMU instance it just launched and keeps its disks. It requests QEMU quit
 directly and allows 3–10 seconds to flush disk writes, based on `qe.graceful_timeout`,
 before falling back to forced termination. Increase `config.vm.boot_timeout` if
-the guest needs more time to become reachable. Interrupting the boot wait with
-Ctrl-C retains the existing behavior and can leave QEMU running.
+the guest needs more time to become reachable; under emulation (a guest
+architecture different from the host, which runs on TCG) or when several VMs
+boot in parallel, set it to 600 seconds or more, as this project's CI does:
+
+```ruby
+config.vm.boot_timeout = 600
+```
+
+Interrupting the boot wait with Ctrl-C retains the existing behavior and can
+leave QEMU running.
 
 ### 1. failed to create shared folder
 
