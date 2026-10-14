@@ -112,6 +112,29 @@ describe VagrantPlugins::QEMU::Driver, "#stop" do
     expect { subject.stop(control_port: nil, graceful_timeout: 1) }.not_to raise_error
   end
 
+  context "after force_kill sends SIGKILL" do
+    before do
+      pid_file = @tmp_base.join("vagrant-qemu", vm_id, "qemu.pid")
+      FileUtils.mkdir_p(pid_file.dirname)
+      File.write(pid_file, "999999999")
+      allow(Process).to receive(:kill).with("KILL", 999999999)
+      allow(subject).to receive(:sleep)
+    end
+
+    it "waits until the process has exited" do
+      allow(subject).to receive(:running?).and_return(true, true, false)
+      subject.send(:force_kill)
+      expect(subject).to have_received(:running?).exactly(3).times
+      expect(subject).to have_received(:sleep).with(0.1).twice
+    end
+
+    it "gives up waiting after about two seconds" do
+      allow(subject).to receive(:running?).and_return(true)
+      subject.send(:force_kill)
+      expect(subject).to have_received(:sleep).with(0.1).exactly(20).times
+    end
+  end
+
   context "when force_kill reads the PID file" do
     before do
       allow(subject).to receive(:sleep)

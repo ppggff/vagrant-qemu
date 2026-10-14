@@ -326,6 +326,12 @@ module VagrantPlugins
         rescue Errno::ESRCH
           # Process already gone
         end
+
+        # SIGKILL is asynchronous; callers check running? right after stop.
+        20.times do
+          break unless running?
+          sleep 0.1
+        end
       end
 
       public
