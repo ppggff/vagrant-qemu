@@ -26,31 +26,26 @@ module VagrantPlugins
         end
       end
 
+      # Update the SSH rule through network(), never in place: a rule from the
+      # top-level or box Vagrantfile is one hash shared by every machine.
+      has_ssh_forward = machine.config.vm.networks.any? do |type, options|
+        type == :forwarded_port && options[:id] == "ssh"
+      end
+
       # There is no provider-managed SSH forward when the user disables our
       # NIC (e.g. a custom bridged NIC with direct SSH). Vagrant/box configs
       # may still contain an inherited SSH rule: exclude it from collisions.
       if machine.provider_config.net_device.nil?
-        machine.config.vm.networks.each do |type, options|
-          options[:disabled] = true if type == :forwarded_port && options[:id] == "ssh"
-        end
+        machine.config.vm.network(:forwarded_port, id: "ssh", disabled: true) if has_ssh_forward
         @app.call(env)
         return
       end
 
-      has_ssh_forward = false
-      machine.config.vm.networks.each do |type, options|
-        next if type != :forwarded_port
-
-        # update ssh.host to ssh_port
-        if options[:id] == "ssh"
-          options[:host] = machine.provider_config.ssh_port
-          options[:auto_correct] = machine.provider_config.ssh_auto_correct
-          has_ssh_forward = true
-          break
-        end
-      end
-
-      if !has_ssh_forward
+      if has_ssh_forward
+        machine.config.vm.network(:forwarded_port, id: "ssh",
+          host: machine.provider_config.ssh_port,
+          auto_correct: machine.provider_config.ssh_auto_correct)
+      else
         machine.config.vm.network :forwarded_port,
           :guest => 22, 
           :host => machine.provider_config.ssh_port, 

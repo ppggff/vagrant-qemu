@@ -13,7 +13,10 @@ describe VagrantPlugins::QEMU::Action::PrepareForwardedPortCollisionParams do
     action = described_class.new(app, ctx[:env])
     action.call(ctx[:env])
 
-    expect(ssh_entry[:host]).to eq 50022
+    expect(ctx[:vm_config]).to have_received(:network).with(
+      :forwarded_port, hash_including(id: "ssh", host: 50022)
+    )
+    expect(ssh_entry[:host]).to eq 2222
   end
 
   it "creates SSH forwarded_port when not present" do
@@ -41,7 +44,9 @@ describe VagrantPlugins::QEMU::Action::PrepareForwardedPortCollisionParams do
     action = described_class.new(app, ctx[:env])
     action.call(ctx[:env])
 
-    expect(ssh_entry[:auto_correct]).to eq true
+    expect(ctx[:vm_config]).to have_received(:network).with(
+      :forwarded_port, hash_including(id: "ssh", auto_correct: true)
+    )
   end
 
   it "sets auto_correct=false when ssh_auto_correct is false" do
@@ -54,7 +59,9 @@ describe VagrantPlugins::QEMU::Action::PrepareForwardedPortCollisionParams do
     action = described_class.new(app, ctx[:env])
     action.call(ctx[:env])
 
-    expect(ssh_entry[:auto_correct]).to eq false
+    expect(ctx[:vm_config]).to have_received(:network).with(
+      :forwarded_port, hash_including(id: "ssh", auto_correct: false)
+    )
   end
 
   it "uses custom ssh_port" do
@@ -67,7 +74,46 @@ describe VagrantPlugins::QEMU::Action::PrepareForwardedPortCollisionParams do
     action = described_class.new(app, ctx[:env])
     action.call(ctx[:env])
 
-    expect(ssh_entry[:host]).to eq 60022
+    expect(ctx[:vm_config]).to have_received(:network).with(
+      :forwarded_port, hash_including(id: "ssh", host: 60022)
+    )
+  end
+
+  describe "an SSH rule shared by several machines" do
+    # Vagrant merges each machine's config from the same top-level config, so
+    # a forwarded_port declared there is one options hash shared by all of
+    # them. Updating it in place would leak into the other machines.
+    def shared_vm_configs
+      require Vagrant.source_root.join("plugins/kernel_v2/config/vm").to_s
+      root = VagrantPlugins::Kernel_V2::VMConfig.new
+      root.network :forwarded_port, id: "ssh", guest: 22, host: 2222
+      Array.new(2) { root.merge(VagrantPlugins::Kernel_V2::VMConfig.new) }
+    end
+
+    def ssh_rule(vm_config)
+      vm_config.networks.find { |type, options| type == :forwarded_port && options[:id] == "ssh" }[1]
+    end
+
+    def run_on(vm_config, **overrides)
+      ctx = mock_vagrant_env(provider_config_overrides: overrides)
+      allow(ctx[:machine]).to receive(:config).and_return(double("config", vm: vm_config))
+      described_class.new(app, ctx[:env]).call(ctx[:env])
+    end
+
+    it "disables the rule only for the machine without the default NIC" do
+      mine, other = shared_vm_configs
+      run_on(mine, net_device: nil)
+      expect(ssh_rule(mine)[:disabled]).to eq true
+      expect(ssh_rule(other)).not_to include(:disabled)
+    end
+
+    it "sets the host port only for the machine being started" do
+      mine, other = shared_vm_configs
+      run_on(mine, ssh_port: 50023, ssh_auto_correct: true)
+      expect(ssh_rule(mine)).to include(host: 50023, auto_correct: true)
+      expect(ssh_rule(other)).to include(host: 2222)
+      expect(ssh_rule(other)).not_to include(:auto_correct)
+    end
   end
 
   describe "port collision check" do
@@ -131,7 +177,8 @@ describe VagrantPlugins::QEMU::Action::PrepareForwardedPortCollisionParams do
       ctx = mock_vagrant_env(provider_config_overrides: { net_device: nil },
         networks: [[:forwarded_port, ssh], [:forwarded_port, web]])
       VagrantPlugins::QEMU::Action::PrepareForwardedPortCollisionParams.new(app, ctx[:env]).call(ctx[:env])
-      expect(ssh[:disabled]).to eq true
+      expect(ctx[:vm_config]).to have_received(:network).with(:forwarded_port, id: "ssh", disabled: true)
+      expect(ssh).to eq(id: "ssh", host: 2222, guest: 22)
       expect(web).to eq(guest: 80, host: 8080)
     end
 
