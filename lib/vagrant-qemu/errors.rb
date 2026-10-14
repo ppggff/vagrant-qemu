@@ -30,6 +30,12 @@ module VagrantPlugins
       class ConfigError < VagrantQEMUError
         error_key(:config_error)
       end
+      class VirtiofsdNotFound < VagrantQEMUError
+        error_key(:virtiofsd_not_found)
+      end
+      class VirtiofsdStartFailed < VagrantQEMUError
+        error_key(:virtiofsd_start_failed)
+      end
 
       class QemuBinaryNotFound < VagrantQEMUError
         error_key(:qemu_binary_not_found)

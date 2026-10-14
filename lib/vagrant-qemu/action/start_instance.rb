@@ -1,4 +1,5 @@
 require "log4r"
+require_relative "../synced_folder_virtiofs"
 
 module VagrantPlugins
   module QEMU
@@ -23,11 +24,11 @@ module VagrantPlugins
             :machine => config.machine,
             :cpu => config.cpu,
             :smp => config.smp,
-            :memory => config.memory,
+            :memory => config.virtiofs_qemu_args.empty? ? config.memory : SyncedFolderVirtioFS.shared_memory_size(config.memory),
             :net_device => config.net_device,
             :drive_interface => config.drive_interface,
             :qemu_bin => config.qemu_bin,
-            :extra_qemu_args => config.extra_qemu_args,
+            :extra_qemu_args => config.extra_qemu_args + config.virtiofs_qemu_args,
             :extra_netdev_args => config.extra_netdev_args,
             :extra_drive_args => config.extra_drive_args,
             :ports => fw_ports,
@@ -61,7 +62,39 @@ module VagrantPlugins
           options[:private_networks] = private_networks.map { |_, opts| opts }
 
           env[:ui].output(I18n.t("vagrant_qemu.starting"))
-          env[:machine].provider.driver.start(options)
+          begin
+            env[:machine].provider.driver.start(options)
+          rescue StandardError
+            raise if config.virtiofs_qemu_args.empty?
+            log_dir = env[:machine].data_dir.join("virtiofs")
+            Dir.glob(log_dir.join("*.log").to_s).each do |path|
+              begin
+                log = File.read(path)
+                env[:ui].error("virtiofsd log (#{path}):\n#{log.empty? ? '(empty)' : log}")
+              rescue Errno::ENOENT, Errno::EACCES
+                # Keep the QEMU failure as the error if the log disappears.
+              end
+            end
+            Dir.glob(log_dir.join("*.pid").to_s).each do |path|
+              begin
+                contents = File.read(path).strip
+                next unless contents.match?(/\A[1-9]\d*\z/)
+                pid = contents.to_i
+                alive = begin
+                  Process.kill(0, pid)
+                  true
+                rescue Errno::ESRCH, Errno::EPERM
+                  false
+                end
+                socket_path = path.sub(/\.pid$/, ".sock_path")
+                socket = File.file?(socket_path) ? File.read(socket_path).strip : nil
+                env[:ui].error("virtiofsd pid #{pid} alive=#{alive}, socket=#{socket} socket_exists=#{socket && File.socket?(socket)}")
+              rescue Errno::ENOENT, Errno::EACCES
+                # Keep the QEMU failure as the error if daemon state disappears.
+              end
+            end
+            raise
+          end
           @control_port = options[:control_port]
           @start_completed = true
           result = @app.call(env)
