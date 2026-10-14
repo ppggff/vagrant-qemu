@@ -47,6 +47,7 @@ describe VagrantPlugins::QEMU::Action::PrepareForwardedPortCollisionParams do
     expect(ctx[:vm_config]).to have_received(:network).with(
       :forwarded_port, hash_including(id: "ssh", auto_correct: true)
     )
+    expect(ssh_entry[:auto_correct]).to eq false
   end
 
   it "sets auto_correct=false when ssh_auto_correct is false" do
@@ -62,6 +63,7 @@ describe VagrantPlugins::QEMU::Action::PrepareForwardedPortCollisionParams do
     expect(ctx[:vm_config]).to have_received(:network).with(
       :forwarded_port, hash_including(id: "ssh", auto_correct: false)
     )
+    expect(ssh_entry[:auto_correct]).to eq true
   end
 
   it "uses custom ssh_port" do
@@ -77,6 +79,7 @@ describe VagrantPlugins::QEMU::Action::PrepareForwardedPortCollisionParams do
     expect(ctx[:vm_config]).to have_received(:network).with(
       :forwarded_port, hash_including(id: "ssh", host: 60022)
     )
+    expect(ssh_entry[:host]).to eq 2222
   end
 
   describe "an SSH rule shared by several machines" do

@@ -128,6 +128,15 @@ describe VagrantPlugins::QEMU::Driver, "#stop" do
       expect(subject).to have_received(:sleep).with(0.1).twice
     end
 
+    it "returns from stop only after the killed process has exited" do
+      allow(subject).to receive(:send_monitor)
+      # initial check, quit wait (1 poll + final), then two polls after the kill
+      allow(subject).to receive(:running?).and_return(true, true, true, true, false)
+      subject.stop(control_port: nil, graceful_timeout: 1, quit_only: true)
+      expect(Process).to have_received(:kill).with("KILL", 999999999)
+      expect(subject).to have_received(:running?).exactly(5).times
+    end
+
     it "gives up waiting after about two seconds" do
       allow(subject).to receive(:running?).and_return(true)
       subject.send(:force_kill)

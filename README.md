@@ -657,9 +657,10 @@ If boot times out or Vagrant reports an invalid boot state, the provider stops
 the QEMU instance it just launched and keeps its disks. It requests QEMU quit
 directly and allows 3–10 seconds to flush disk writes, based on `qe.graceful_timeout`,
 before falling back to forced termination. Increase `config.vm.boot_timeout` if
-the guest needs more time to become reachable; under emulation (a guest
-architecture different from the host, which runs on TCG) or when several VMs
-boot in parallel, set it to 600 seconds or more, as this project's CI does:
+the guest needs more time to become reachable. When QEMU runs on TCG (a guest
+architecture different from the host, or no HVF/KVM available) or several VMs
+boot in parallel, set it to 600 seconds or more, as this project's CI does for
+its TCG runs:
 
 ```ruby
 config.vm.boot_timeout = 600
