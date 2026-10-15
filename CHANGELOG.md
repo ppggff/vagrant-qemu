@@ -224,12 +224,71 @@
   `vagrant up --no-parallel`. A plain `vagrant up` boots both machines in
   parallel, and if the connector starts first the link never comes up.
 
-# Unreleased
+# 0.7.0 (2026-10-15)
 
-* Report primary boot-disk growth before resizing, and warn when a smaller
-  requested size is skipped. Equal-sized declarations remain quiet.
-* Upgrade note for the primary-disk fix in #88: older primary declarations
-  created a separate `vagrant_primary.qcow2` instead of resizing the boot disk.
-  The file is retained but is no longer automatically attached. To reattach it,
-  replace the old declaration with a non-primary disk named `vagrant_primary`
-  (or its original custom name). See the README for the full migration example.
+Thanks to @christhomas, who contributed most of this release
+(#81, #85, #87–#95).
+
+New:
+
+* VirtioFS synced folders: `config.vm.synced_folder ..., type: "qemu_virtiofs"`.
+  The provider starts one `virtiofsd` per share, backs guest RAM with a shared
+  memory file and mounts the shares after boot; the daemons are stopped on
+  halt, destroy, package and failed boots. New config: `virtiofsd_bin`,
+  `virtiofs_guest_uid` / `virtiofs_guest_gid` (default 1000) and
+  `extra_virtiofsd_args`; `qe.memory` must be a positive size. Linux hosts and
+  WSL2 use the distribution's `virtiofsd`. macOS support is experimental and
+  needs a QEMU built with vhost-user and a macOS `virtiofsd` port, available
+  from a community Homebrew tap (see the README). (#81)
+* `vagrant serial-config [name|id] [--json]` prints the Unix socket path or TCP
+  host and port of each QEMU machine's serial console. (#37, #92)
+* README: how to package a QEMU machine into a reusable box, plus a tested
+  round-trip recipe in `examples/package-roundtrip`. (#94)
+
+Behavior changes:
+
+* If the guest does not become reachable within `config.vm.boot_timeout`
+  (default 300 s), or Vagrant reports an invalid boot state, the provider now
+  stops the QEMU instance it just started and keeps its disks. Previously QEMU
+  was left running. Emulated guests (a guest architecture different from the
+  host, or no HVF/KVM) and several VMs booting in parallel can need more than
+  300 s; set `config.vm.boot_timeout = 600` or more. A guest that used to
+  finish booting in the background after the timeout now has to be brought up
+  again with `vagrant up`, from the start. Interrupting the boot wait with
+  Ctrl-C still leaves QEMU running. (#89, refs #21)
+* `config.vm.disk :disk, primary: true, size: ...` now grows the existing boot
+  disk instead of attaching a new blank disk; it never shrinks it, and reports
+  sizes such as `100 GiB`. The blank disk an older version created for the
+  declaration (`vagrant_primary.qcow2`, or `<name>.qcow2` for a custom name)
+  is no longer attached; the provider warns while that file exists, and
+  the README's "Upgrading older primary disk declarations" section shows how to
+  attach it again. (#66, #88, #93, #95)
+* With `net_device = nil`, an inherited SSH forward is disabled and the
+  configured `ssh_port` is kept instead of a collision-corrected one. (#71, #87)
+
+Fixes:
+
+* macOS: firmware for an aarch64 guest is now looked up in the host's Homebrew
+  prefix rather than one chosen by the guest architecture, fixing Intel Macs.
+  If Vagrant's Ruby runs under Rosetta on Apple Silicon, set `HOMEBREW_PREFIX`
+  or `qe.qemu_dir`. (#50, #59, #90)
+* Waiting for a monitor reply during `vagrant halt` is now bounded, so halt can
+  always escalate to quit and kill. With `control_port` set, halt connects to
+  127.0.0.1: on macOS 27 connecting to localhost could pick ::1 and appear
+  connected, so powerdown and quit were never delivered and QEMU was killed
+  only after both timeouts. (#89)
+* `vagrant halt` could fail with `Errno::ENOENT` when QEMU removed its pidfile
+  just as the provider read it. An empty pidfile no longer reads as a running
+  VM, and a force kill waits for QEMU to exit.
+* Updating the SSH forward no longer leaks into other machines that share a
+  forwarded_port rule from the top-level or box Vagrantfile.
+* README: AlmaLinux 9 x86_64 guests need `qe.cpu = "max"` under emulation
+  (#67, #91); the `other_default` default is `-parallel none`.
+
+Project:
+
+* Cross-platform CI on GitHub Actions: unit specs on Linux, macOS and Windows;
+  guest smoke tests on Linux, macOS and WSL2; e2e on Linux (KVM), macOS (TCG:
+  vmnet, socket_vmnet, VirtioFS) and VirtioFS in WSL2. (#85)
+* The gem now ships only `lib/`, `locales/`, `LICENSE`, `README.md` and
+  `CHANGELOG.md`.
