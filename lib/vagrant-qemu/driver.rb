@@ -283,10 +283,11 @@ module VagrantPlugins
 
         # 4. Last resort: SIGKILL the QEMU process (no flush/cleanup). If it is
         #    still there, stop here rather than let halt report success or
-        #    destroy delete the files of a running QEMU. A killed QEMU that
-        #    nobody reaped shows as <defunct> and fails the identity check.
+        #    destroy delete the files of a running QEMU. Only a zombie counts
+        #    as gone: one still releasing a large guest's memory no longer
+        #    shows its argv to ps, so the identity check cannot tell.
         return if force_kill(pid)
-        raise Errors::QemuDidNotExit, pid: pid if owned_by_vm?(pid, runtime_layouts[dir])
+        raise Errors::QemuDidNotExit, pid: pid if process_exists?(pid) && !zombie?(pid)
       ensure
         remove_runtime_leftovers(dir, pid) if pid
       end
@@ -391,6 +392,14 @@ module VagrantPlugins
       rescue SystemCallError
         # No usable ps (e.g. on Windows): keep the kill(0) answer.
         true
+      end
+
+      # ps state Z: killed and only waiting for its parent to reap it.
+      def zombie?(pid)
+        out, status = Open3.capture2e("ps", "-o", "stat=", "-p", pid.to_s)
+        status.success? && out.strip.start_with?("Z")
+      rescue SystemCallError
+        false
       end
 
       # Prefer the monitor endpoint the VM was actually started with

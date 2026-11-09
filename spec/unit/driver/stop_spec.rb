@@ -218,10 +218,11 @@ describe VagrantPlugins::QEMU::Driver, "#stop" do
     it "keeps them while the PID still exists" do
       live_in(run_dir, Process.pid)
       allow(subject).to receive(:running?).and_return(true)
-      allow(subject).to receive(:owned_by_vm?).and_return(false)
+      allow(subject).to receive(:zombie?).and_return(false)
       FileUtils.touch(run_dir.join("qemu.pid"))
 
-      subject.stop(control_port: nil)
+      expect { subject.stop(control_port: nil) }
+        .to raise_error(VagrantPlugins::QEMU::Errors::QemuDidNotExit)
 
       expect(run_dir.join("qemu.pid")).to exist
     end
@@ -266,7 +267,7 @@ describe VagrantPlugins::QEMU::Driver, "#stop" do
       allow(subject).to receive(:send_monitor).and_return(true)
       allow(subject).to receive(:running?).and_return(true)
       allow(Process).to receive(:kill).with(0, pid).and_return(1)
-      allow(subject).to receive(:owned_by_vm?).and_return(true)
+      allow(subject).to receive(:zombie?).with(pid).and_return(false)
       FileUtils.touch(run_dir.join("qemu.pid"))
 
       expect { subject.stop(control_port: nil, graceful_timeout: 1, quit_only: true) }
@@ -280,10 +281,36 @@ describe VagrantPlugins::QEMU::Driver, "#stop" do
       allow(subject).to receive(:send_monitor).and_return(true)
       allow(subject).to receive(:running?).and_return(true)
       allow(Process).to receive(:kill).with(0, pid).and_return(1)
-      # ps shows a zombie as <defunct>, without the -pidfile argument.
-      allow(subject).to receive(:owned_by_vm?).and_return(false)
+      allow(subject).to receive(:zombie?).with(pid).and_return(true)
 
       expect { subject.stop(control_port: nil, graceful_timeout: 1, quit_only: true) }.not_to raise_error
+    end
+
+    it "still reports a QEMU that is exiting but not yet a zombie" do
+      # While a large guest's memory is released, ps no longer shows argv,
+      # so the identity check alone would take it for gone.
+      live_in(run_dir)
+      allow(subject).to receive(:send_monitor).and_return(true)
+      allow(subject).to receive(:running?).and_return(true)
+      allow(Process).to receive(:kill).with(0, pid).and_return(1)
+      allow(subject).to receive(:owned_by_vm?).and_return(false)
+      allow(subject).to receive(:zombie?).with(pid).and_return(false)
+
+      expect { subject.stop(control_port: nil, graceful_timeout: 1, quit_only: true) }
+        .to raise_error(VagrantPlugins::QEMU::Errors::QemuDidNotExit)
+    end
+
+    it "recognizes an unreaped child as a zombie" do
+      skip "relies on ps, which Windows lacks" if Vagrant::Util::Platform.windows?
+      allow(Process).to receive(:kill).and_call_original
+      child = Process.spawn(RbConfig.ruby, "-e", "sleep 60")
+      Process.kill("KILL", child)
+      deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 5
+      sleep 0.05 until subject.send(:zombie?, child) || Process.clock_gettime(Process::CLOCK_MONOTONIC) > deadline
+      expect(subject.send(:zombie?, child)).to eq true
+      Process.wait(child)
+      expect(subject.send(:zombie?, child)).to eq false
+      expect(subject.send(:zombie?, Process.pid)).to eq false
     end
   end
 
