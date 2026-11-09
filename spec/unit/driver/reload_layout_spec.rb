@@ -37,7 +37,7 @@ describe VagrantPlugins::QEMU::Driver, "reload of a VM an older version started"
     # The guest powers off: QEMU exits and removes its pidfile.
     allow(subject).to receive(:send_monitor) do |_opts, _command|
       kill_fake_qemu(@pids.first)
-      sleep 0.2
+      wait_until_gone(@pids.first)
       File.delete(legacy_dir.join("qemu.pid"))
       true
     end

@@ -62,6 +62,16 @@ def kill_fake_qemu(pid)
 rescue Errno::ESRCH
 end
 
+def wait_until_gone(pid, timeout: 5)
+  deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout
+  loop do
+    Process.kill(0, pid)
+    raise "process #{pid} still exists" if Process.clock_gettime(Process::CLOCK_MONOTONIC) > deadline
+    sleep 0.05
+  end
+rescue Errno::ESRCH
+end
+
 # Helper to create a mock Vagrant environment for action tests
 def mock_vagrant_env(provider_config_overrides: {}, networks: [])
   machine = double("machine")

@@ -49,6 +49,10 @@ module VagrantPlugins
         error_key(:qemu_process_not_owned)
       end
 
+      class PidfileNotReadable < VagrantQEMUError
+        error_key(:pidfile_not_readable)
+      end
+
       class SocketVmnetNotMacos < VagrantQEMUError
         error_key(:socket_vmnet_not_macos)
       end

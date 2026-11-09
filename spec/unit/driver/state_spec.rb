@@ -95,6 +95,7 @@ describe VagrantPlugins::QEMU::Driver do
     end
 
     it "ignores a pidfile whose PID now belongs to an unrelated process" do
+      skip "relies on ps, which Windows lacks" if Vagrant::Util::Platform.windows?
       FileUtils.mkdir_p(run_pid_file.dirname)
       File.write(run_pid_file, Process.pid.to_s)
       expect(subject.running?).to eq false
@@ -107,6 +108,7 @@ describe VagrantPlugins::QEMU::Driver do
     end
 
     it "reports another user's unrelated process as not running instead of raising" do
+      skip "relies on ps, which Windows lacks" if Vagrant::Util::Platform.windows?
       FileUtils.mkdir_p(run_pid_file.dirname)
       File.write(run_pid_file, "1")
       expect { subject.running? }.not_to raise_error
@@ -118,6 +120,17 @@ describe VagrantPlugins::QEMU::Driver do
       allow(Process).to receive(:kill).and_call_original
       allow(Process).to receive(:kill).with(0, pid).and_raise(Errno::EPERM)
       expect(subject.running?).to eq true
+    end
+
+    it "explains a pidfile only another user can read instead of raising EACCES" do
+      skip "chmod does not restrict reading on Windows" if Vagrant::Util::Platform.windows?
+      skip "root can read any file" if Process.uid == 0
+      FileUtils.mkdir_p(run_pid_file.dirname)
+      File.write(run_pid_file, "4242")
+      File.chmod(0o000, run_pid_file)
+      expect { subject.running? }.to raise_error(VagrantPlugins::QEMU::Errors::PidfileNotReadable)
+    ensure
+      File.chmod(0o600, run_pid_file) if run_pid_file.exist?
     end
 
     it "falls back to the kill(0) answer when ps is unavailable" do

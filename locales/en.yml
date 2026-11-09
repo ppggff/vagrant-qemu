@@ -109,6 +109,13 @@ en:
         The QEMU process of this VM (PID %{pid}) belongs to another user, so
         it cannot be stopped from here. Run the command as the user that
         started the VM, e.g. with `sudo` if `vagrant up` ran under sudo.
+      pidfile_not_readable: |-
+        The QEMU pidfile of this VM belongs to another user:
+
+          %{path}
+
+        This usually means the VM was started with `sudo vagrant up`. Run
+        this command as that user too, e.g. with `sudo`.
       socket_vmnet_not_macos: |-
         net_mode = :socket_vmnet is only supported on macOS (it relies on
         the socket_vmnet daemon and vmnet.framework).

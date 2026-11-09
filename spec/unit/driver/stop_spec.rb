@@ -180,7 +180,8 @@ describe VagrantPlugins::QEMU::Driver, "#stop" do
       sockets = [legacy_dir.join("qemu_socket"), legacy_dir.join("qemu_socket_serial")]
       File.write(run_dir.join("options.yml"),
                  { monitor_socket: sockets[0].to_s, serial_socket: sockets[1].to_s }.to_yaml)
-      ([run_dir.join("qemu.pid")] + sockets).each { |f| FileUtils.touch(f) }
+      sockets.each { |f| FileUtils.touch(f) }
+      File.write(run_dir.join("qemu.pid"), pid.to_s)
 
       subject.stop(control_port: nil)
 
@@ -191,11 +192,27 @@ describe VagrantPlugins::QEMU::Driver, "#stop" do
     it "removes an older version's runtime files once its VM is stopped" do
       live_in(legacy_dir)
       allow(subject).to receive(:running?).and_return(false)
-      %w(qemu.pid options.yml qemu_socket qemu_socket_serial).each { |f| FileUtils.touch(legacy_dir.join(f)) }
+      %w(options.yml qemu_socket qemu_socket_serial).each { |f| FileUtils.touch(legacy_dir.join(f)) }
+      File.write(legacy_dir.join("qemu.pid"), pid.to_s)
 
       subject.stop(control_port: nil)
 
       expect(legacy_dir.children).to be_empty
+    end
+
+    it "keeps them once a new QEMU has written its PID there" do
+      live_in(run_dir)
+      allow(subject).to receive(:running?).and_return(false)
+      allow(subject).to receive(:send_monitor).and_return(true)
+      File.write(run_dir.join("options.yml"), { monitor_socket: legacy_dir.join("qemu_socket").to_s }.to_yaml)
+      FileUtils.mkdir_p(legacy_dir)
+      FileUtils.touch(legacy_dir.join("qemu_socket"))
+      File.write(run_dir.join("qemu.pid"), "424242")
+
+      subject.stop(control_port: nil)
+
+      expect(run_dir.join("qemu.pid")).to exist
+      expect(legacy_dir.join("qemu_socket")).to exist
     end
 
     it "keeps them while the PID still exists" do
@@ -268,6 +285,8 @@ describe VagrantPlugins::QEMU::Driver, "#stop" do
     end
 
     it "never signals a reused PID that belongs to another process" do
+      # Without ps the kill(0) answer stands, and TERM would reach rspec itself.
+      skip "relies on ps, which Windows lacks" if Vagrant::Util::Platform.windows?
       File.write(@pid_file, Process.pid.to_s)
       allow(Process).to receive(:kill).and_call_original
 

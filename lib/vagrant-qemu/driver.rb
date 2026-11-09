@@ -288,10 +288,14 @@ module VagrantPlugins
 
       # QEMU unlinks its pidfile on exit, so the file can vanish between any
       # existence check and the read: read it once and treat ENOENT as gone.
+      # QEMU creates it mode 0600, so a VM started under sudo leaves one that
+      # other users cannot read.
       def read_pid(dir)
         File.read(dir.join("qemu.pid")).to_i
       rescue Errno::ENOENT
         nil
+      rescue Errno::EACCES
+        raise Errors::PidfileNotReadable, path: dir.join("qemu.pid").to_s
       end
 
       # Runtime files (qemu.pid, options.yml) live in the project's machine
@@ -317,6 +321,10 @@ module VagrantPlugins
       # still exists.
       def remove_runtime_leftovers(dir, pid)
         return if process_exists?(pid)
+        # Another VAGRANT_HOME holds no machine lock against us and may have
+        # started the VM again meanwhile.
+        current = read_pid(dir)
+        return if current && current != pid
         files = [dir.join("qemu.pid").to_s, *socket_paths(dir)]
         files << dir.join("options.yml").to_s if dir != run_dir
         FileUtils.rm_f(files)
