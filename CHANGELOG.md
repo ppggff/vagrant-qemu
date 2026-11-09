@@ -292,3 +292,41 @@ Project:
   vmnet, socket_vmnet, VirtioFS) and VirtioFS in WSL2. (#85)
 * The gem now ships only `lib/`, `locales/`, `LICENSE`, `README.md` and
   `CHANGELOG.md`.
+
+# 0.8.0 (2026-11-09)
+
+Behavior changes:
+
+* The QEMU pidfile and the runtime record `options.yml` moved from
+  `~/.vagrant.d/tmp/vagrant-qemu/<id>/` into the project, under
+  `.vagrant/machines/<name>/qemu/<id>/run/`. A removed tmp directory, or a
+  later command run under another `VAGRANT_HOME`, no longer makes a running VM
+  look stopped, which had left `vagrant halt` doing nothing and
+  `vagrant destroy` leaving QEMU running. The monitor and serial sockets stay
+  in the tmp directory, since macOS limits unix socket paths to 104 bytes;
+  their paths are recorded at launch, so halt and `vagrant serial-config`
+  still reach them. (#96)
+* A VM started by 0.3.7 to 0.7.0 keeps its old layout while it runs: it is
+  still found, halted and destroyed as before, and moves to the new layout the
+  next time it starts. Only then is it protected as above. Reading the old
+  layout will be kept for at least one minor release.
+* Halt your VMs before downgrading the plugin: older releases look only in the
+  tmp directory and report a VM started by 0.8.0 as stopped.
+
+Fixes:
+
+* A pidfile now counts only if the command line of its process contains that
+  pidfile, so a pidfile left behind by a crash or SIGKILL whose PID was reused
+  no longer reads as a running VM, and halt never signals that process.
+* A VM whose QEMU runs as another user (for example started with
+  `sudo vagrant up`) no longer fails with a bare `Errno::EPERM` or
+  `Errno::EACCES`: the provider says to run the command as that user.
+* When the QEMU monitor cannot be reached, halt sends SIGTERM right away, so
+  QEMU closes its disk images (the guest gets no shutdown request), and
+  SIGKILLs it if it is still running 10 seconds later. It no longer waits out
+  `graceful_timeout` twice and then SIGKILLs.
+* A pidfile and sockets left after a SIGKILL are removed once QEMU is gone.
+* If QEMU is still running 10 seconds after SIGKILL, halt and destroy now fail
+  with an error naming the PID. Before, halt reported success, destroy deleted
+  the VM's files and reload left the old QEMU running. A QEMU that has exited
+  and only waits to be reaped counts as gone.
