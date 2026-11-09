@@ -79,11 +79,13 @@ describe "a running VM stays manageable without its tmp runtime dir (#96)", :req
     pid = qemu_pid
     serial_socket = home_tmp_runtime_dir.join("qemu_socket_serial").to_s
 
+    # Seed the other home with this home's installed plugins: installing
+    # even a local gem contacts rubygems.org.
     other_home = @dir.join("other-home")
-    gem = File.expand_path("../../pkg/vagrant-qemu-#{VagrantPlugins::QEMU::VERSION}.gem", __dir__)
-    expect(File.exist?(gem)).to eq(true), "build the gem first: #{gem}"
-    install = run_under_home(other_home, "plugin", "install", gem, timeout: 300)
-    expect(install[:exit_code]).to eq(0), install.inspect
+    default_home = Pathname.new(ENV["VAGRANT_HOME"] || File.join(Dir.home, ".vagrant.d"))
+    FileUtils.mkdir_p(other_home)
+    FileUtils.cp_r(default_home.join("gems"), other_home.join("gems"))
+    FileUtils.cp(default_home.join("plugins.json"), other_home)
 
     status = run_under_home(other_home, "status", "--machine-readable")
     expect(status[:stdout]).to include(",state,running"), status.inspect
