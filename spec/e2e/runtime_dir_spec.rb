@@ -73,19 +73,23 @@ describe "a running VM stays manageable without its tmp runtime dir (#96)", :req
     expect(vagrant_status(@work_dir)[:stdout]).to include(",state,stopped")
   end
 
-  it "is found, described and halted from another VAGRANT_HOME" do
+  it "is found, described, halted and destroyed from another VAGRANT_HOME" do
     result = vagrant_up(@work_dir)
     expect(result[:exit_code]).to eq(0), result.inspect
     pid = qemu_pid
     serial_socket = home_tmp_runtime_dir.join("qemu_socket_serial").to_s
 
     other_home = @dir.join("other-home")
-    gem = Dir[File.expand_path("../../pkg/vagrant-qemu-#{VagrantPlugins::QEMU::VERSION}.gem", __dir__)].first
+    gem = File.expand_path("../../pkg/vagrant-qemu-#{VagrantPlugins::QEMU::VERSION}.gem", __dir__)
+    expect(File.exist?(gem)).to eq(true), "build the gem first: #{gem}"
     install = run_under_home(other_home, "plugin", "install", gem, timeout: 300)
     expect(install[:exit_code]).to eq(0), install.inspect
 
     status = run_under_home(other_home, "status", "--machine-readable")
     expect(status[:stdout]).to include(",state,running"), status.inspect
+
+    ssh = run_under_home(other_home, "ssh", "-c", "echo ok", timeout: 60)
+    expect(ssh[:stdout]).to include("ok"), ssh.inspect
 
     serial = run_under_home(other_home, "serial-config", "--json")
     expect(JSON.parse(serial[:stdout]).first["endpoint"]).to include("path" => serial_socket), serial.inspect
@@ -95,5 +99,12 @@ describe "a running VM stays manageable without its tmp runtime dir (#96)", :req
     logs = halt[:stdout] + halt[:stderr]
     expect(logs).not_to include("monitor unreachable")
     expect(alive?(pid)).to eq false
+
+    id = vm_id
+    tmp_dir = home_tmp_runtime_dir
+    destroy = run_under_home(other_home, "destroy", "-f", timeout: 120)
+    expect(destroy[:exit_code]).to eq(0), destroy.inspect
+    expect(@work_dir.join(".vagrant", "machines", "default", "qemu", id)).not_to exist
+    expect(tmp_dir).not_to exist
   end
 end
