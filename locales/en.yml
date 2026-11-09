@@ -105,6 +105,10 @@ en:
 
         The machine ID has been preserved. Fix the underlying issue and
         run `vagrant destroy` again.
+      qemu_process_not_owned: |-
+        The QEMU process of this VM (PID %{pid}) belongs to another user, so
+        it cannot be stopped from here. Run the command as the user that
+        started the VM, e.g. with `sudo` if `vagrant up` ran under sudo.
       socket_vmnet_not_macos: |-
         net_mode = :socket_vmnet is only supported on macOS (it relies on
         the socket_vmnet daemon and vmnet.framework).

@@ -46,6 +46,22 @@ ensure
   FileUtils.rm_rf(dir)
 end
 
+# Spawn a stand-in for QEMU whose command line carries `-pidfile <path>` and
+# write its PID there. Detached so a killed stand-in is reaped instead of
+# lingering as a zombie that kill(0) still sees.
+def spawn_fake_qemu(pid_file)
+  FileUtils.mkdir_p(File.dirname(pid_file))
+  pid = Process.spawn(RbConfig.ruby, "-e", "sleep 60", "--", "-pidfile", pid_file.to_s)
+  Process.detach(pid)
+  File.write(pid_file, pid.to_s)
+  pid
+end
+
+def kill_fake_qemu(pid)
+  Process.kill("KILL", pid)
+rescue Errno::ESRCH
+end
+
 # Helper to create a mock Vagrant environment for action tests
 def mock_vagrant_env(provider_config_overrides: {}, networks: [])
   machine = double("machine")

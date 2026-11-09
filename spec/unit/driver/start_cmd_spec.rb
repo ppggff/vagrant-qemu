@@ -174,4 +174,66 @@ describe VagrantPlugins::QEMU::Driver, "start command line (single NIC)" do
     expect(@captured_cmd[0]).to eq "/custom/qemu"
     expect(@captured_cmd[1]).to eq "--special"
   end
+
+  describe "runtime files" do
+    let(:run_dir) { @data_dir.join(vm_id, "run") }
+    let(:legacy_dir) { @tmp_base.join("vagrant-qemu", vm_id) }
+
+    def arg_after(flag)
+      @captured_cmd[@captured_cmd.index(flag) + 1]
+    end
+
+    def recorded
+      YAML.safe_load(File.read(run_dir.join("options.yml")), permitted_classes: [Symbol])
+    end
+
+    it "writes the pidfile into the project-local run directory" do
+      subject.start(base_options)
+      expect(arg_after("-pidfile")).to eq run_dir.join("qemu.pid").to_s
+    end
+
+    it "records the launch-time ports, socket paths and plugin version there" do
+      subject.start(base_options.merge(ssh_port: 50023))
+      expect(recorded).to eq(
+        ssh_port: 50023, control_port: nil, debug_port: nil,
+        monitor_socket: legacy_dir.join("qemu_socket").to_s,
+        serial_socket: legacy_dir.join("qemu_socket_serial").to_s,
+        plugin_version: VagrantPlugins::QEMU::VERSION,
+      )
+      expect(legacy_dir.join("options.yml")).not_to exist
+    end
+
+    it "keeps the monitor and serial sockets at their pre-0.8 paths" do
+      subject.start(base_options)
+      expect(@captured_cmd).to include("socket,id=mon0,path=#{legacy_dir.join("qemu_socket")},server=on,wait=off")
+      expect(@captured_cmd).to include("socket,id=ser0,path=#{legacy_dir.join("qemu_socket_serial")},server=on,wait=off")
+    end
+
+    it "records no socket for a monitor or serial port on TCP" do
+      subject.start(base_options.merge(control_port: 33333, debug_port: 33334))
+      expect(recorded).to include(monitor_socket: nil, serial_socket: nil, control_port: 33333, debug_port: 33334)
+    end
+
+    it "removes runtime files an older version left in the tmp directory" do
+      FileUtils.mkdir_p(legacy_dir)
+      File.write(legacy_dir.join("qemu.pid"), "999999999")
+      File.write(legacy_dir.join("options.yml"), { ssh_port: 50022 }.to_yaml)
+
+      subject.start(base_options)
+
+      expect(legacy_dir.join("qemu.pid")).not_to exist
+      expect(legacy_dir.join("options.yml")).not_to exist
+    end
+
+    it "keeps them while their PID still exists, even if it is not this VM" do
+      FileUtils.mkdir_p(legacy_dir)
+      File.write(legacy_dir.join("qemu.pid"), Process.pid.to_s)
+      File.write(legacy_dir.join("options.yml"), { ssh_port: 50022 }.to_yaml)
+
+      subject.start(base_options)
+
+      expect(legacy_dir.join("qemu.pid")).to exist
+      expect(legacy_dir.join("options.yml")).to exist
+    end
+  end
 end

@@ -35,6 +35,27 @@ describe VagrantPlugins::QEMU::Driver, "#get_ssh_port" do
     expect(subject.get_ssh_port(50022)).to eq 50022
   end
 
+  it "reads the project-local runtime record" do
+    run_dir = @data_dir.join(vm_id, "run")
+    FileUtils.mkdir_p(run_dir)
+    File.write(run_dir.join("options.yml"), { ssh_port: 50024 }.to_yaml)
+
+    expect(subject.get_ssh_port(50022)).to eq 50024
+  end
+
+  it "reads the tmp record of a VM an older version is still running" do
+    run_dir = @data_dir.join(vm_id, "run")
+    FileUtils.mkdir_p(run_dir)
+    File.write(run_dir.join("options.yml"), { ssh_port: 50024 }.to_yaml)
+    legacy_dir = @tmp_base.join("vagrant-qemu", vm_id)
+    pid = spawn_fake_qemu(legacy_dir.join("qemu.pid"))
+    File.write(legacy_dir.join("options.yml"), { ssh_port: 50025 }.to_yaml)
+
+    expect(subject.get_ssh_port(50022)).to eq 50025
+  ensure
+    kill_fake_qemu(pid) if pid
+  end
+
   it "stores result in @ssh_port" do
     opt_dir = @tmp_base.join("vagrant-qemu", vm_id)
     FileUtils.mkdir_p(opt_dir)

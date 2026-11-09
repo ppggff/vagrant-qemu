@@ -1,5 +1,6 @@
 require 'log4r'
 require 'childprocess'
+require 'open3'
 require 'securerandom'
 require 'yaml'
 
@@ -11,10 +12,14 @@ require "vagrant/util/which"
 
 require_relative "plugin"
 require_relative "network"
+require_relative "version"
 
 module VagrantPlugins
   module QEMU
     class Driver
+      # Seconds to wait for QEMU to exit after SIGTERM before SIGKILL.
+      TERM_TIMEOUT = 10
+
       # @return [String] VM ID
       attr_reader :vm_id
       attr_reader :data_dir
@@ -45,10 +50,21 @@ module VagrantPlugins
 
       def delete
         if created?
+          sockets = socket_paths(runtime_dir)
           id_dir = @data_dir.join(@vm_id)
           FileUtils.rm_rf(id_dir)
           id_tmp_dir = @tmp_dir.join(@vm_id)
           FileUtils.rm_rf(id_tmp_dir)
+
+          # Sockets recorded under another VAGRANT_HOME's tmp dir.
+          sockets.each do |path|
+            FileUtils.rm_f(path)
+            begin
+              Dir.rmdir(File.dirname(path))
+            rescue SystemCallError
+              # Not empty, or already removed with id_tmp_dir.
+            end
+          end
         end
       end
 
@@ -65,30 +81,37 @@ module VagrantPlugins
 
           id_tmp_dir = @tmp_dir.join(@vm_id)
           FileUtils.mkdir_p(id_tmp_dir)
+          remove_legacy_runtime_files
+          FileUtils.mkdir_p(run_dir)
 
-          # Persist only the runtime state we need to read back later
+          monitor_socket = id_tmp_dir.join("qemu_socket").to_s if options[:control_port].nil?
+          serial_socket = id_tmp_dir.join("qemu_socket_serial").to_s if options[:debug_port].nil?
+
+          # Persist only the runtime state we need to read back later. The
+          # socket paths are recorded so that commands run under another
+          # VAGRANT_HOME still reach the sockets this launch created.
           persisted_state = {
             :ssh_port => options[:ssh_port],
             :control_port => options[:control_port],
             :debug_port => options[:debug_port],
+            :monitor_socket => monitor_socket,
+            :serial_socket => serial_socket,
+            :plugin_version => VERSION,
           }
-          options_file = id_tmp_dir.join("options.yml")
-          File.write(options_file, persisted_state.to_yaml)
+          File.write(run_dir.join("options.yml"), persisted_state.to_yaml)
 
           control_socket = ""
           if !options[:control_port].nil?
             control_socket = "port=#{options[:control_port]},host=localhost,ipv4=on"
           else
-            unix_socket_path = id_tmp_dir.join("qemu_socket").to_s
-            control_socket = "path=#{unix_socket_path}"
+            control_socket = "path=#{monitor_socket}"
           end
 
           debug_socket = ""
           if !options[:debug_port].nil?
             debug_socket = "port=#{options[:debug_port]},host=localhost,ipv4=on"
           else
-            unix_socket_serial_path = id_tmp_dir.join("qemu_socket_serial").to_s
-            debug_socket = "path=#{unix_socket_serial_path}"
+            debug_socket = "path=#{serial_socket}"
           end
 
           cmd = []
@@ -196,7 +219,7 @@ module VagrantPlugins
           end
 
           # control
-          pid_file = id_tmp_dir.join("qemu.pid").to_s
+          pid_file = run_dir.join("qemu.pid").to_s
           cmd += %W(-chardev socket,id=mon0,#{control_socket},server=on,wait=off)
           cmd += %W(-mon chardev=mon0,mode=readline)
           cmd += %W(-chardev socket,id=ser0,#{debug_socket},server=on,wait=off)
@@ -222,80 +245,197 @@ module VagrantPlugins
       end
 
       def stop(options)
-        return unless running?
+        dir, pid = live_instance
+        return if pid.nil?
 
-        opts = with_persisted_control_port(options)
+        opts = with_persisted_monitor(options, dir)
         timeout = options[:graceful_timeout] || 60
+        monitor = true
 
         # 1. ACPI power button (graceful). Only works if a live guest OS is
         #    there to act on it -- e.g. NOT after `systemctl halt`, which leaves
         #    QEMU running with a halted, unresponsive guest.
         unless options[:quit_only]
-          send_monitor(opts, "system_powerdown")
-          return unless still_running_after?(timeout)
-          @logger.warn("VM did not power down within #{timeout}s; sending 'quit' to QEMU")
+          monitor = send_monitor(opts, "system_powerdown")
+          if monitor
+            return unless still_running_after?(timeout)
+            @logger.warn("VM did not power down within #{timeout}s; sending 'quit' to QEMU")
+          end
         end
 
         # 2. Powerdown didn't take. Ask QEMU itself to quit: it stops the VM,
         #    flushes and closes the qcow2 images, then exits cleanly. Does not
         #    depend on the guest, only on the monitor being reachable.
-        send_monitor(opts, "quit")
-        return unless still_running_after?(timeout)
+        if monitor && send_monitor(opts, "quit")
+          return unless still_running_after?(timeout)
+          @logger.warn("VM still running after 'quit'; forcing kill")
+        else
+          # 3. The monitor is unreachable (e.g. its socket was removed), so
+          #    there is nothing to wait for: SIGTERM makes QEMU shut down and
+          #    close its images like 'quit', without telling the guest.
+          @logger.warn("QEMU monitor unreachable; sending SIGTERM")
+          return if terminate(pid)
+          @logger.warn("VM still running after SIGTERM; forcing kill")
+        end
 
-        # 3. Last resort: SIGKILL the QEMU process (no flush/cleanup).
-        @logger.warn("VM still running after 'quit'; forcing kill")
-        force_kill
+        # 4. Last resort: SIGKILL the QEMU process (no flush/cleanup).
+        force_kill(pid)
+      ensure
+        remove_runtime_leftovers(dir, pid) if pid
       end
 
       private
 
       # QEMU unlinks its pidfile on exit, so the file can vanish between any
       # existence check and the read: read it once and treat ENOENT as gone.
-      def read_pid
-        File.read(@tmp_dir.join(@vm_id).join("qemu.pid")).to_i
+      def read_pid(dir)
+        File.read(dir.join("qemu.pid")).to_i
       rescue Errno::ENOENT
         nil
       end
 
-      # Prefer the control_port the VM was actually started with (persisted
-      # in options.yml) so halt still works after a Vagrantfile edit.
-      def with_persisted_control_port(options)
-        options_file = @tmp_dir.join(@vm_id).join("options.yml")
-        return options if !options_file.file?
+      # Runtime files (qemu.pid, options.yml) live in the project's machine
+      # data dir so a cleaned tmp dir or another VAGRANT_HOME cannot hide a
+      # running VM. The unix sockets stay in Vagrant's tmp dir: macOS caps
+      # socket paths at 104 bytes and project paths can be longer.
+      def run_dir
+        @data_dir.join(@vm_id, "run")
+      end
 
-        persisted = YAML.safe_load(File.read(options_file), permitted_classes: [Symbol]) rescue nil
-        return options if persisted.nil? || !persisted.key?(:control_port)
+      # Where each layout keeps qemu.pid, with the ASCII tail of that path to
+      # look for in QEMU's command line. 0.3.7 to 0.7.0 used the tmp dir.
+      def runtime_layouts
+        {
+          run_dir => "/#{@vm_id}/run/qemu.pid",
+          @tmp_dir.join(@vm_id) => "/vagrant-qemu/#{@vm_id}/qemu.pid",
+        }
+      end
 
-        options.merge(:control_port => persisted[:control_port])
+      # QEMU removes its pidfile and sockets on a clean exit, but not after
+      # SIGKILL. An older version's options.yml goes too, so the next start
+      # reads only the project-local layout. Nothing is removed while the PID
+      # still exists.
+      def remove_runtime_leftovers(dir, pid)
+        return if process_exists?(pid)
+        files = [dir.join("qemu.pid").to_s, *socket_paths(dir)]
+        files << dir.join("options.yml").to_s if dir != run_dir
+        FileUtils.rm_f(files)
+      end
+
+      # Unix sockets of the instance whose runtime files are in dir. Versions
+      # before the runtime record always used the tmp dir.
+      def socket_paths(dir)
+        persisted = persisted_options(dir)
+        if persisted.is_a?(Hash) && persisted.key?(:monitor_socket)
+          return [persisted[:monitor_socket], persisted[:serial_socket]].compact
+        end
+        [@tmp_dir.join(@vm_id, "qemu_socket").to_s, @tmp_dir.join(@vm_id, "qemu_socket_serial").to_s]
+      end
+
+      # 0.3.7 to 0.7.0 kept qemu.pid and options.yml in the tmp dir. Remove
+      # them before starting under the project-local layout, unless their PID
+      # still exists: a failed identity check alone never justifies deleting
+      # files a live process may own.
+      def remove_legacy_runtime_files
+        dir = @tmp_dir.join(@vm_id)
+        pid = read_pid(dir)
+        return if pid && pid > 0 && process_exists?(pid)
+        FileUtils.rm_f([dir.join("qemu.pid").to_s, dir.join("options.yml").to_s])
+      end
+
+      # [runtime dir, PID] of this VM's running QEMU, or nil. Never cached:
+      # a reload stops an old-layout VM and starts it under the new one.
+      def live_instance
+        runtime_layouts.each do |dir, token|
+          pid = read_pid(dir)
+          next if pid.nil? || pid <= 0 || !process_exists?(pid)
+          return [dir, pid] if owned_by_vm?(pid, token)
+        end
+        nil
+      end
+
+      # EPERM means the process exists but belongs to another user, e.g. a VM
+      # started with sudo.
+      def process_exists?(pid)
+        Process.kill(0, pid)
+        true
+      rescue Errno::ESRCH
+        false
+      rescue Errno::EPERM
+        true
+      end
+
+      # Guards against a stale pidfile whose PID was reused. Matches only the
+      # ASCII tail of the -pidfile argument: ps escapes non-ASCII bytes under
+      # the C locale, and argv keeps the launch-time path if the project
+      # directory is moved while the VM runs.
+      def owned_by_vm?(pid, token)
+        out, status = Open3.capture2e("ps", "-ww", "-p", pid.to_s, "-o", "args=")
+        return out.b.include?(token.b) if status.success?
+        process_exists?(pid)
+      rescue SystemCallError
+        # No usable ps (e.g. on Windows): keep the kill(0) answer.
+        true
+      end
+
+      # Prefer the monitor endpoint the VM was actually started with
+      # (persisted in options.yml) so halt still works after a Vagrantfile
+      # edit or under another VAGRANT_HOME.
+      def with_persisted_monitor(options, dir)
+        persisted = persisted_options(dir)
+        return options unless persisted.is_a?(Hash)
+
+        options.merge(persisted.slice(:control_port, :monitor_socket))
+      end
+
+      # The live instance's runtime dir; for a stopped VM, the layout that
+      # last left an options.yml behind (project-local first).
+      def runtime_dir
+        live = live_instance
+        return live.first if live
+        run_dir.join("options.yml").file? ? run_dir : @tmp_dir.join(@vm_id)
+      end
+
+      def persisted_options(dir = runtime_dir)
+        # safe_load + File.read (not safe_load_file) so older Psych works too
+        YAML.safe_load(File.read(dir.join("options.yml")), permitted_classes: [Symbol])
+      rescue StandardError
+        nil
       end
 
       # Send a single QEMU monitor command over the control channel (TCP
       # control_port if set, else the unix monitor socket). Best-effort: the
       # socket may already be gone (e.g. QEMU exited from a prior command), so
-      # connection errors are swallowed.
+      # connection errors are swallowed. Returns whether the command was
+      # written; a reply cut short after that still counts as delivered.
       # Drain replies until EOF with a deadline: immediately closing both
       # halves can discard the command on QEMU's hangup event, while an
       # unbounded read can bypass every shutdown timeout below.
       def send_monitor(options, command)
+        sent = false
         monitor_timeout = [[options[:graceful_timeout] || 60, 1].max, 5].min
         if !options[:control_port].nil?
           # start binds the TCP monitor with ipv4=on; avoid an IPv6 localhost
           # attempt (and its refused-connection delay on Windows).
           Socket.tcp("127.0.0.1", options[:control_port], connect_timeout: 5) do |sock|
             sock.print "#{command}\n"
+            sent = true
             sock.close_write
             drain_monitor(sock, monitor_timeout)
           end
         else
-          unix_socket_path = @tmp_dir.join(@vm_id).join("qemu_socket").to_s
+          unix_socket_path = options[:monitor_socket] || @tmp_dir.join(@vm_id).join("qemu_socket").to_s
           Socket.unix(unix_socket_path) do |sock|
             sock.print "#{command}\n"
+            sent = true
             sock.close_write
             drain_monitor(sock, monitor_timeout)
           end
         end
+        sent
       rescue => e
         @logger.debug("monitor command '#{command}' failed: #{e}") if @logger
+        sent
       end
 
       def drain_monitor(sock, timeout)
@@ -317,14 +457,29 @@ module VagrantPlugins
         running?
       end
 
-      def force_kill
-        pid = read_pid
+      # True once QEMU is gone; false while it still runs or where SIGTERM is
+      # not supported (e.g. Windows), leaving SIGKILL to the caller.
+      def terminate(pid)
+        return true if pid.nil? || pid <= 0
+        Process.kill("TERM", pid)
+        !still_running_after?(TERM_TIMEOUT)
+      rescue Errno::ESRCH
+        true
+      rescue Errno::EPERM
+        raise Errors::QemuProcessNotOwned, pid: pid
+      rescue SystemCallError, ArgumentError
+        false
+      end
+
+      def force_kill(pid)
         return if pid.nil? || pid <= 0
 
         begin
           Process.kill("KILL", pid)
         rescue Errno::ESRCH
           # Process already gone
+        rescue Errno::EPERM
+          raise Errors::QemuProcessNotOwned, pid: pid
         end
 
         # SIGKILL is asynchronous; callers check running? right after stop.
@@ -341,29 +496,23 @@ module VagrantPlugins
       def serial_endpoint(default_port = nil)
         return nil if @vm_id.nil?
 
-        runtime_dir = @tmp_dir.join(@vm_id)
-        options_file = runtime_dir.join("options.yml")
-        options = YAML.safe_load(File.read(options_file), permitted_classes: [Symbol]) rescue nil
+        options = persisted_options
+        options = {} unless options.is_a?(Hash)
         port = default_port
-        port = options[:debug_port] if options.is_a?(Hash) && options.key?(:debug_port)
+        port = options[:debug_port] if options.key?(:debug_port)
 
         if port.nil?
-          { type: :unix, path: runtime_dir.join("qemu_socket_serial").to_s }
+          path = options[:serial_socket] || @tmp_dir.join(@vm_id, "qemu_socket_serial").to_s
+          { type: :unix, path: path }
         else
           { type: :tcp, host: "127.0.0.1", port: port }
         end
       end
 
       def get_ssh_port(default_port)
-        id_tmp_dir = @tmp_dir.join(@vm_id)
-        options_file = id_tmp_dir.join("options.yml")
-
+        options = persisted_options
         port = default_port
-        if options_file.file?
-          # safe_load + File.read (not safe_load_file) so older Psych works too
-          options = YAML.safe_load(File.read(options_file), permitted_classes: [Symbol]) rescue nil
-          port = options[:ssh_port] if !options.nil? && options.key?(:ssh_port)
-        end
+        port = options[:ssh_port] if options.is_a?(Hash) && options.key?(:ssh_port)
 
         @ssh_port = port
       end
@@ -419,15 +568,7 @@ module VagrantPlugins
       end
 
       def running?
-        pid = read_pid
-        return false if pid.nil? || pid <= 0
-
-        begin
-          Process.kill(0, pid)
-          true
-        rescue Errno::ESRCH
-          false
-        end
+        !live_instance.nil?
       end
 
       def execute(*cmd, **opts, &block)

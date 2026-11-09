@@ -29,6 +29,14 @@ describe "serial endpoint discovery" do
     expect(@driver.serial_endpoint(44444)).to eq(type: :unix, path: @runtime_dir.join("qemu_socket_serial").to_s)
   end
 
+  it "uses the socket path recorded at launch, even under another VAGRANT_HOME" do
+    run_dir = @driver.data_dir.join("vm", "run")
+    FileUtils.mkdir_p(run_dir)
+    File.write(run_dir.join("options.yml"), { debug_port: nil, serial_socket: "/elsewhere/qemu_socket_serial" }.to_yaml)
+    other_home = VagrantPlugins::QEMU::Driver.new("vm", @driver.data_dir, @driver.tmp_dir.dirname.join("other-home-tmp"))
+    expect(other_home.serial_endpoint(nil)).to eq(type: :unix, path: "/elsewhere/qemu_socket_serial")
+  end
+
   it "does not invent an endpoint for an uncreated machine" do
     driver = VagrantPlugins::QEMU::Driver.new(nil, @driver.data_dir, @driver.tmp_dir)
     expect(driver.serial_endpoint(33334)).to be_nil

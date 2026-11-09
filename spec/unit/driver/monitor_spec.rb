@@ -34,6 +34,33 @@ describe VagrantPlugins::QEMU::Driver, "monitor delivery" do
 
     end
 
+    it "reports a monitor socket that cannot be reached" do
+      with_temp_dir do |dir|
+        driver = VagrantPlugins::QEMU::Driver.new("vm", dir, dir)
+        sent = driver.send(:send_monitor, { control_port: nil, monitor_socket: dir.join("gone").to_s }, "quit")
+        expect(sent).to eq false
+      end
+    end
+
+    it "counts a command as delivered once written, even if the reply is cut short" do
+      with_temp_dir do |dir|
+        driver = VagrantPlugins::QEMU::Driver.new("vm", dir, dir)
+        server = TCPServer.new("127.0.0.1", 0)
+        worker = Thread.new do
+          peer = server.accept
+          peer.gets
+          peer.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, [1, 0].pack("ii"))
+          peer.close
+        end
+        allow(driver).to receive(:drain_monitor) { worker.join; raise Errno::ECONNRESET }
+        sent = driver.send(:send_monitor, { control_port: server.addr[1], graceful_timeout: 1 }, "system_powerdown")
+        expect(sent).to eq true
+      ensure
+        worker&.kill
+        server&.close
+      end
+    end
+
     it "reaches the kill fallback without waiting for monitor EOF" do
       with_temp_dir do |dir|
         driver = VagrantPlugins::QEMU::Driver.new("vm", dir, dir)
@@ -48,6 +75,7 @@ describe VagrantPlugins::QEMU::Driver, "monitor delivery" do
             # Leave the monitor open, as a stalled QEMU monitor can do.
           end
         end
+        allow(driver).to receive(:live_instance).and_return([dir.join("vm", "run"), 999999999])
         allow(driver).to receive(:running?).and_return(true)
         allow(driver).to receive(:force_kill)
         Timeout.timeout(4) { driver.stop(control_port: server.addr[1], graceful_timeout: 0) }

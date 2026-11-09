@@ -45,6 +45,10 @@ module VagrantPlugins
         error_key(:destroy_error)
       end
 
+      class QemuProcessNotOwned < VagrantQEMUError
+        error_key(:qemu_process_not_owned)
+      end
+
       class SocketVmnetNotMacos < VagrantQEMUError
         error_key(:socket_vmnet_not_macos)
       end

@@ -27,6 +27,37 @@ describe VagrantPlugins::QEMU::Driver, "#delete" do
     expect(id_tmp).not_to exist
   end
 
+  it "removes sockets recorded under another VAGRANT_HOME and their emptied directory" do
+    other = @tmp_base.dirname.join("other-home", "tmp", "vagrant-qemu", vm_id)
+    FileUtils.mkdir_p(other)
+    sockets = [other.join("qemu_socket"), other.join("qemu_socket_serial")]
+    sockets.each { |f| FileUtils.touch(f) }
+    run_dir = @data_dir.join(vm_id, "run")
+    FileUtils.mkdir_p(run_dir)
+    File.write(run_dir.join("options.yml"),
+               { monitor_socket: sockets[0].to_s, serial_socket: sockets[1].to_s }.to_yaml)
+
+    subject.delete
+
+    expect(other).not_to exist
+    expect(other.dirname).to exist
+  end
+
+  it "keeps a recorded socket's directory when other files remain in it" do
+    other = @tmp_base.dirname.join("other-home", "tmp", "vagrant-qemu", vm_id)
+    FileUtils.mkdir_p(other)
+    FileUtils.touch(other.join("qemu_socket"))
+    FileUtils.touch(other.join("unrelated"))
+    run_dir = @data_dir.join(vm_id, "run")
+    FileUtils.mkdir_p(run_dir)
+    File.write(run_dir.join("options.yml"), { monitor_socket: other.join("qemu_socket").to_s }.to_yaml)
+
+    subject.delete
+
+    expect(other.join("qemu_socket")).not_to exist
+    expect(other.join("unrelated")).to exist
+  end
+
   it "does nothing when not created" do
     expect { subject.delete }.not_to raise_error
   end
