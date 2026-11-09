@@ -19,6 +19,9 @@ module VagrantPlugins
     class Driver
       # Seconds to wait for QEMU to exit after SIGTERM before SIGKILL.
       TERM_TIMEOUT = 10
+      # Seconds to wait after SIGKILL; a large guest's memory takes time to
+      # release.
+      KILL_TIMEOUT = 10
 
       # @return [String] VM ID
       attr_reader :vm_id
@@ -278,8 +281,12 @@ module VagrantPlugins
           @logger.warn("VM still running after SIGTERM; forcing kill")
         end
 
-        # 4. Last resort: SIGKILL the QEMU process (no flush/cleanup).
-        force_kill(pid)
+        # 4. Last resort: SIGKILL the QEMU process (no flush/cleanup). If it is
+        #    still there, stop here rather than let halt report success or
+        #    destroy delete the files of a running QEMU. A killed QEMU that
+        #    nobody reaped shows as <defunct> and fails the identity check.
+        return if force_kill(pid)
+        raise Errors::QemuDidNotExit, pid: pid if owned_by_vm?(pid, runtime_layouts[dir])
       ensure
         remove_runtime_leftovers(dir, pid) if pid
       end
@@ -479,8 +486,9 @@ module VagrantPlugins
         false
       end
 
+      # True once the process is gone.
       def force_kill(pid)
-        return if pid.nil? || pid <= 0
+        return true if pid.nil? || pid <= 0
 
         begin
           Process.kill("KILL", pid)
@@ -491,10 +499,11 @@ module VagrantPlugins
         end
 
         # SIGKILL is asynchronous; callers check running? right after stop.
-        20.times do
-          break unless running?
+        (KILL_TIMEOUT * 10).times do
+          return true unless process_exists?(pid)
           sleep 0.1
         end
+        !process_exists?(pid)
       end
 
       public

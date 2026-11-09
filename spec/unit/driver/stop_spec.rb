@@ -218,6 +218,7 @@ describe VagrantPlugins::QEMU::Driver, "#stop" do
     it "keeps them while the PID still exists" do
       live_in(run_dir, Process.pid)
       allow(subject).to receive(:running?).and_return(true)
+      allow(subject).to receive(:owned_by_vm?).and_return(false)
       FileUtils.touch(run_dir.join("qemu.pid"))
 
       subject.stop(control_port: nil)
@@ -232,28 +233,57 @@ describe VagrantPlugins::QEMU::Driver, "#stop" do
       allow(subject).to receive(:sleep)
     end
 
+    # kill(0) finds the process for the first `polls` checks, then not.
+    def exits_after(polls)
+      calls = 0
+      allow(Process).to receive(:kill).with(0, pid) do
+        calls += 1
+        raise Errno::ESRCH if calls > polls
+        1
+      end
+    end
+
     it "waits until the process has exited" do
-      allow(subject).to receive(:running?).and_return(true, true, false)
-      subject.send(:force_kill, pid)
-      expect(subject).to have_received(:running?).exactly(3).times
+      exits_after(2)
+      expect(subject.send(:force_kill, pid)).to eq true
       expect(subject).to have_received(:sleep).with(0.1).twice
     end
 
     it "returns from stop only after the killed process has exited" do
       live_in(run_dir)
       allow(subject).to receive(:send_monitor).and_return(true)
-      allow(Process).to receive(:kill).with(0, pid).and_raise(Errno::ESRCH)
-      # quit wait (1 poll + final), then two polls after the kill
-      allow(subject).to receive(:running?).and_return(true, true, true, false)
-      subject.stop(control_port: nil, graceful_timeout: 1, quit_only: true)
+      allow(subject).to receive(:running?).and_return(true)
+      exits_after(2)
+
+      expect { subject.stop(control_port: nil, graceful_timeout: 1, quit_only: true) }.not_to raise_error
+
       expect(Process).to have_received(:kill).with("KILL", pid)
-      expect(subject).to have_received(:running?).exactly(4).times
+      expect(subject).to have_received(:sleep).with(0.1).twice
     end
 
-    it "gives up waiting after about two seconds" do
+    it "reports QEMU still running ten seconds after SIGKILL instead of returning" do
+      live_in(run_dir)
+      allow(subject).to receive(:send_monitor).and_return(true)
       allow(subject).to receive(:running?).and_return(true)
-      subject.send(:force_kill, pid)
-      expect(subject).to have_received(:sleep).with(0.1).exactly(20).times
+      allow(Process).to receive(:kill).with(0, pid).and_return(1)
+      allow(subject).to receive(:owned_by_vm?).and_return(true)
+      FileUtils.touch(run_dir.join("qemu.pid"))
+
+      expect { subject.stop(control_port: nil, graceful_timeout: 1, quit_only: true) }
+        .to raise_error(VagrantPlugins::QEMU::Errors::QemuDidNotExit)
+      expect(subject).to have_received(:sleep).with(0.1).exactly(100).times
+      expect(run_dir.join("qemu.pid")).to exist
+    end
+
+    it "treats a killed QEMU left as an unreaped zombie as exited" do
+      live_in(run_dir)
+      allow(subject).to receive(:send_monitor).and_return(true)
+      allow(subject).to receive(:running?).and_return(true)
+      allow(Process).to receive(:kill).with(0, pid).and_return(1)
+      # ps shows a zombie as <defunct>, without the -pidfile argument.
+      allow(subject).to receive(:owned_by_vm?).and_return(false)
+
+      expect { subject.stop(control_port: nil, graceful_timeout: 1, quit_only: true) }.not_to raise_error
     end
   end
 

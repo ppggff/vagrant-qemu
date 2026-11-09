@@ -53,6 +53,10 @@ module VagrantPlugins
         error_key(:pidfile_not_readable)
       end
 
+      class QemuDidNotExit < VagrantQEMUError
+        error_key(:qemu_did_not_exit)
+      end
+
       class SocketVmnetNotMacos < VagrantQEMUError
         error_key(:socket_vmnet_not_macos)
       end

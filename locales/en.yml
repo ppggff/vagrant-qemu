@@ -116,6 +116,10 @@ en:
 
         This usually means the VM was started with `sudo vagrant up`. Run
         this command as that user too, e.g. with `sudo`.
+      qemu_did_not_exit: |-
+        QEMU (PID %{pid}) is still running 10 seconds after SIGKILL, so the
+        VM's files were left in place. Check the process, e.g. with
+        `ps -p %{pid}`, and run the command again once it has exited.
       socket_vmnet_not_macos: |-
         net_mode = :socket_vmnet is only supported on macOS (it relies on
         the socket_vmnet daemon and vmnet.framework).
